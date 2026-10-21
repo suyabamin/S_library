@@ -1,0 +1,58 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  :root {
+    --color-primary: #087F5B;
+    --color-primary-hover: #06684B;
+    --color-primary-soft: #E8F5EF;
+    --color-accent: #168AAD;
+    --color-text: #182B25;
+    --color-text-muted: #64736D;
+    --color-background: #F6F9F7;
+    --color-surface: #FFFFFF;
+    --color-border: #DDE7E1;
+    --color-success: #16803C;
+    --color-warning: #B7791F;
+    --color-danger: #C0392B;
+    --radius-card: 12px;
+    --radius-control: 8px;
+    --shadow-card: 0 2px 10px rgba(16, 45, 34, 0.06);
+  }
+
+  body {
+    background-color: var(--color-background);
+    color: var(--color-text);
+    font-family: 'Hind Siliguri', 'Noto Sans Bengali', system-ui, sans-serif;
+    line-height: 1.65;
+  }
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: #F1F5F3;
+}
+::-webkit-scrollbar-thumb {
+  background: #C6E7D9;
+  border-radius: 4px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #087F5B;
+}
+
+/* Utilities for cards and shadows */
+.card-shadow {
+  box-shadow: 0 2px 10px rgba(16, 45, 34, 0.06);
+}
+.card-shadow-hover {
+  transition: all 0.2s ease-in-out;
+}
+.card-shadow-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(16, 45, 34, 0.12);
+}

@@ -1,0 +1,105 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Helper functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() &&
+        (request.auth.token.role == 'admin' ||
+         exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+    }
+
+    // Default deny all
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Categories: Public read, admin write
+    match /categories/{categoryId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Digital Books: Public read for published, admin write
+    match /books/{bookId} {
+      allow read: if resource.data.status == 'published' || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // Physical Books & Inventory: Public read for active, admin write
+    match /physicalBooks/{physicalBookId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /bookCopies/{copyId} {
+      allow read: if isAuthenticated();
+      allow write: if isAdmin();
+    }
+
+    // History Articles: Public read for published, admin write
+    match /historyArticles/{articleId} {
+      allow read: if resource.data.status == 'published' || isAdmin();
+      allow write: if isAdmin();
+    }
+
+    // User Profiles: Owner can read/update permitted fields (cannot change role)
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isOwner(userId) && request.resource.data.role == 'user';
+      allow update: if isOwner(userId) && request.resource.data.role == resource.data.role;
+      allow delete: if isAdmin();
+    }
+
+    // Borrow Requests: Borrower can create and view; Admin can approve/reject
+    match /borrowRequests/{requestId} {
+      allow read: if isAuthenticated() && (resource.data.borrowerUid == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() &&
+                    request.resource.data.borrowerUid == request.auth.uid &&
+                    request.resource.data.status == 'pending';
+      allow update: if isAdmin() || (isOwner(resource.data.borrowerUid) && request.resource.data.status == resource.data.status);
+    }
+
+    // Loans: Borrower and Admin can view
+    match /loans/{loanId} {
+      allow read: if isAuthenticated() && (resource.data.borrowerUid == request.auth.uid || isAdmin());
+      allow write: if isAdmin();
+    }
+
+    // Chats: Only participant borrower and authorized admins can access
+    match /chats/{chatId} {
+      allow read: if isAuthenticated() && (resource.data.borrowerUid == request.auth.uid || isAdmin());
+      allow create: if isAdmin();
+
+      match /messages/{messageId} {
+        allow read: if isAuthenticated() &&
+                    (get(/databases/$(database)/documents/chats/$(chatId)).data.borrowerUid == request.auth.uid || isAdmin());
+        allow create: if isAuthenticated() &&
+                      request.resource.data.senderUid == request.auth.uid &&
+                      (get(/databases/$(database)/documents/chats/$(chatId)).data.borrowerUid == request.auth.uid || isAdmin());
+      }
+    }
+
+    // In-app Notifications: Recipient can read and update read status
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && resource.data.recipientUid == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.recipientUid == request.auth.uid &&
+                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
+      allow create, delete: if isAdmin();
+    }
+
+    // Audit Logs: Strictly Admin only
+    match /auditLogs/{logId} {
+      allow read: if isAdmin();
+      allow write: if false; // Only server/trusted cloud functions
+    }
+  }
+}
