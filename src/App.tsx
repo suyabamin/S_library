@@ -67,8 +67,11 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const { isAuthenticated, isAdmin } = useAuth();
   const location = useLocation();
-  if (!isAuthenticated || !isAdmin) {
+  if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
+  }
+  if (!isAdmin) {
+    return <Navigate to="/dashboard" replace />;
   }
   return <>{children}</>;
 };

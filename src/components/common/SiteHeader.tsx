@@ -21,7 +21,7 @@ import { NotificationDropdown } from './NotificationDropdown';
 import { toBengaliNumber } from '../../lib/utils';
 
 export const SiteHeader: React.FC = () => {
-  const { user, isAuthenticated, isAdmin, logout, switchDemoRole } = useAuth();
+  const { user, isAuthenticated, isAdmin, logout } = useAuth();
   const { unreadNotificationCount } = useLibrary();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [notificationsOpen, setNotificationsOpen] = useState(false);
@@ -50,43 +50,6 @@ export const SiteHeader: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-brand-border shadow-sm">
-      {/* Top Banner / Role Switcher for seamless QA */}
-      <div className="bg-primary-900 text-emerald-100 text-xs py-1.5 px-4 hidden md:flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <span className="inline-flex items-center gap-1.5 font-medium">
-            <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse"></span>
-            UIU থানা শাখা লাইব্রেরি সিস্টেম • শহিদি কাফেলা
-          </span>
-        </div>
-        <div className="flex items-center gap-2">
-          <span className="text-emerald-300">রোল টেস্ট মোড:</span>
-          <button
-            onClick={() => switchDemoRole('visitor')}
-            className={`px-2 py-0.5 rounded text-[11px] transition ${
-              !isAuthenticated ? 'bg-emerald-600 text-white font-bold' : 'hover:bg-primary-800 text-emerald-200'
-            }`}
-          >
-            ভিজিটর
-          </button>
-          <button
-            onClick={() => switchDemoRole('user')}
-            className={`px-2 py-0.5 rounded text-[11px] transition ${
-              isAuthenticated && !isAdmin ? 'bg-emerald-600 text-white font-bold' : 'hover:bg-primary-800 text-emerald-200'
-            }`}
-          >
-            পাঠক (রাফি)
-          </button>
-          <button
-            onClick={() => switchDemoRole('admin')}
-            className={`px-2 py-0.5 rounded text-[11px] transition ${
-              isAdmin ? 'bg-amber-600 text-white font-bold' : 'hover:bg-primary-800 text-emerald-200'
-            }`}
-          >
-            এডমিন (দায়িত্বশীল)
-          </button>
-        </div>
-      </div>
-
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
         <div className="flex items-center justify-between h-16 md:h-20">
           {/* Logo & Brand Identity */}
@@ -274,35 +237,57 @@ export const SiteHeader: React.FC = () => {
             ))}
           </div>
 
-          <div className="pt-3 border-t border-brand-border">
-            <p className="text-xs text-brand-muted px-4 mb-2 font-medium">রোল পরিবর্তন করুন:</p>
-            <div className="grid grid-cols-3 gap-2 px-4">
-              <button
-                onClick={() => { switchDemoRole('visitor'); setMobileMenuOpen(false); }}
-                className={`py-1.5 text-xs rounded text-center border ${
-                  !isAuthenticated ? 'bg-primary text-white border-primary' : 'bg-gray-50 text-gray-700'
-                }`}
+          {/* Mobile Auth Links */}
+          {isAuthenticated ? (
+            <div className="pt-3 border-t border-brand-border space-y-1">
+              <Link
+                to="/dashboard"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-base font-medium text-brand-text hover:bg-gray-50"
               >
-                ভিজিটর
-              </button>
-              <button
-                onClick={() => { switchDemoRole('user'); setMobileMenuOpen(false); }}
-                className={`py-1.5 text-xs rounded text-center border ${
-                  isAuthenticated && !isAdmin ? 'bg-primary text-white border-primary' : 'bg-gray-50 text-gray-700'
-                }`}
+                <LayoutDashboard className="w-4 h-4 text-brand-muted" /> ড্যাশবোর্ড
+              </Link>
+              <Link
+                to="/profile"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-base font-medium text-brand-text hover:bg-gray-50"
               >
-                পাঠক
-              </button>
+                <UserIcon className="w-4 h-4 text-brand-muted" /> আমার প্রোফাইল
+              </Link>
+              {isAdmin && (
+                <Link
+                  to="/admin"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-base font-bold text-primary hover:bg-primary-soft"
+                >
+                  <ShieldCheck className="w-4 h-4 text-primary" /> অ্যাডমিন প্যানেল
+                </Link>
+              )}
               <button
-                onClick={() => { switchDemoRole('admin'); setMobileMenuOpen(false); }}
-                className={`py-1.5 text-xs rounded text-center border ${
-                  isAdmin ? 'bg-amber-600 text-white border-amber-600' : 'bg-gray-50 text-gray-700'
-                }`}
+                onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-base font-medium text-rose-600 hover:bg-rose-50"
               >
-                এডমিন
+                <LogOut className="w-4 h-4 text-rose-500" /> লগআউট
               </button>
             </div>
-          </div>
+          ) : (
+            <div className="pt-3 border-t border-brand-border flex gap-3 px-4">
+              <Link
+                to="/login"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex-1 text-center px-4 py-2 rounded-lg text-sm font-semibold text-primary border border-primary hover:bg-primary-soft transition"
+              >
+                লগইন
+              </Link>
+              <Link
+                to="/register"
+                onClick={() => setMobileMenuOpen(false)}
+                className="flex-1 text-center px-4 py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-hover shadow-sm transition"
+              >
+                সাইন আপ
+              </Link>
+            </div>
+          )}
         </div>
       )}
     </header>

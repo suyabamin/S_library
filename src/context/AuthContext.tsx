@@ -61,7 +61,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return null;
       }
     }
-    return DEFAULT_DEMO_USER;
+    return null;
   });
 
   useEffect(() => {
@@ -94,12 +94,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (userDocSnap.exists()) {
             const data = userDocSnap.data() as UserProfile;
+            const finalIsAdmin = isAdmin || data.role === 'admin';
             setUser({
               ...data,
               uid: fbUser.uid,
               displayName: fbUser.displayName || data.displayName || 'ব্যবহারকারী',
               email: fbUser.email || data.email,
-              role: isAdmin ? 'admin' : (data.role || 'user'),
+              role: finalIsAdmin ? 'admin' : (data.role || 'user'),
             });
           } else {
             // Document might not be created yet if just registered
@@ -117,6 +118,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         } catch (e) {
           console.warn('Error fetching Firestore user profile:', e);
         }
+      } else {
+        setUser(null);
+        localStorage.removeItem('shibir_library_user');
       }
     });
 
@@ -152,10 +156,11 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (userDocSnap.exists()) {
           const data = userDocSnap.data() as UserProfile;
+          const finalIsAdmin = isAdmin || data.role === 'admin';
           profileData = {
             ...data,
             uid: fbUser.uid,
-            role: isAdmin ? 'admin' : (data.role || 'user'),
+            role: finalIsAdmin ? 'admin' : (data.role || 'user'),
           };
         } else {
           // If first login and firestore document was missing

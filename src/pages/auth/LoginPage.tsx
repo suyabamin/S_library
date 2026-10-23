@@ -8,8 +8,8 @@ export const LoginPage: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const [emailOrPhone, setEmailOrPhone] = useState('rafi@gmail.com');
-  const [password, setPassword] = useState('password123');
+  const [emailOrPhone, setEmailOrPhone] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [rememberMe, setRememberMe] = useState(true);
   const [error, setError] = useState<string | null>(null);
@@ -32,7 +32,11 @@ export const LoginPage: React.FC = () => {
     setError(null);
     try {
       await login(emailOrPhone.trim(), password);
-      navigate(from, { replace: true });
+      if (emailOrPhone.toLowerCase().includes('admin') && from === '/dashboard') {
+        navigate('/admin', { replace: true });
+      } else {
+        navigate(from, { replace: true });
+      }
     } catch (err) {
       setError((err as Error).message || 'লগইন ব্যর্থ হয়েছে। তথ্য যাচাই করুন।');
     } finally {
