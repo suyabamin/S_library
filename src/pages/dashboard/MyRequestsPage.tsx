@@ -1,15 +1,20 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { UserDashboardLayout } from '../../components/layout/UserDashboardLayout';
 import { useLibrary } from '../../context/LibraryContext';
+import { useAuth } from '../../context/AuthContext';
 import { StatusBadge } from '../../components/common/StatusBadge';
 import { EmptyState } from '../../components/common/EmptyState';
-import { BookOpen, MessageSquare, Calendar, MapPin } from 'lucide-react';
+import { BookOpen, MessageSquare, Calendar, MapPin, CheckCircle2, Clock } from 'lucide-react';
 import { PICKUP_LOCATION_LABELS } from '../../types';
 import { formatBengaliDate } from '../../lib/utils';
 
 export const MyRequestsPage: React.FC = () => {
-  const { requests } = useLibrary();
+  const { requests, confirmBorrowerReceipt } = useLibrary();
+  const { user } = useAuth();
+  const [loadingId, setLoadingId] = useState<string | null>(null);
+
+  const myRequests = requests.filter((r) => !user || r.borrowerUid === user.uid);
 
   return (
     <UserDashboardLayout>
@@ -29,7 +34,7 @@ export const MyRequestsPage: React.FC = () => {
           </Link>
         </div>
 
-        {requests.length === 0 ? (
+        {myRequests.length === 0 ? (
           <EmptyState
             title="কোনো আবেদন পাওয়া যায়নি"
             description="আপনি এখনো কোনো বইয়ের জন্য আবেদন করেননি।"
@@ -38,7 +43,7 @@ export const MyRequestsPage: React.FC = () => {
           />
         ) : (
           <div className="space-y-4">
-            {requests.map((req) => (
+            {myRequests.map((req) => (
               <div
                 key={req.id}
                 className="p-5 rounded-xl border border-brand-border bg-gray-50/50 hover:bg-white transition card-shadow space-y-3"
@@ -49,7 +54,9 @@ export const MyRequestsPage: React.FC = () => {
                       <BookOpen className="w-5 h-5" />
                     </div>
                     <div>
-                      <h3 className="font-bold text-base text-brand-text">{req.bookTitle}</h3>
+                      <Link to={`/borrow/request/${req.id}`} className="font-bold text-base text-brand-text hover:text-primary transition">
+                        {req.bookTitle}
+                      </Link>
                       <p className="text-xs text-brand-muted">
                         আবেদনের সময়: {formatBengaliDate(req.createdAt)}
                       </p>
@@ -83,6 +90,46 @@ export const MyRequestsPage: React.FC = () => {
                     </div>
                   )}
                 </div>
+
+                {/* Handover confirmation bar */}
+                {req.status === 'approved' && (
+                  <div className="p-3 bg-amber-50/80 rounded-lg border border-amber-200 flex flex-col sm:flex-row sm:items-center justify-between gap-2 text-xs">
+                    <div className="flex items-center gap-2 text-amber-900">
+                      <Clock className="w-4 h-4 text-amber-600 shrink-0" />
+                      <span>
+                        {req.adminHandoverConfirmed
+                          ? '✅ এডমিন বইটি হস্তান্তর করেছেন। আপনি পেয়ে থাকলে নিশ্চিত করুন।'
+                          : 'এডমিন কর্তৃক বই হস্তান্তরের অপেক্ষা চলছে...'}
+                      </span>
+                    </div>
+                    {!req.borrowerReceivedConfirmed ? (
+                      <button
+                        disabled={loadingId === req.id}
+                        onClick={async () => {
+                          setLoadingId(req.id);
+                          await confirmBorrowerReceipt(req.id);
+                          setLoadingId(null);
+                        }}
+                        className="px-3 py-1.5 rounded-md bg-primary text-white font-bold hover:bg-primary-hover transition self-start sm:self-auto shrink-0"
+                      >
+                        {loadingId === req.id ? 'নিশ্চিত হচ্ছে...' : 'বইটি হাতে পেয়েছি'}
+                      </button>
+                    ) : (
+                      <span className="text-emerald-700 font-bold bg-emerald-100 px-2.5 py-1 rounded">
+                        প্রাপ্তি নিশ্চিত (এডমিনের চূড়ান্ত অপেক্ষমাণ)
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {req.status === 'borrowed' && (
+                  <div className="p-2.5 bg-emerald-50 rounded-lg border border-emerald-200 flex items-center justify-between text-xs">
+                    <span className="text-emerald-800 font-medium">বই হস্তান্তর সফল। ধারটি সক্রিয় আছে।</span>
+                    <Link to="/my-loans" className="text-primary font-bold hover:underline">
+                      সক্রিয় ধার দেখুন →
+                    </Link>
+                  </div>
+                )}
               </div>
             ))}
           </div>

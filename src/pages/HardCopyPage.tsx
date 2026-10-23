@@ -6,6 +6,7 @@ import { BorrowRequestModal } from '../components/borrow/BorrowRequestModal';
 import { BookMarked, MapPin, Clock, ShieldCheck, CheckCircle2 } from 'lucide-react';
 import { Book } from '../types';
 import { toBengaliNumber } from '../lib/utils';
+import { EditableText } from '../context/SiteContentContext';
 
 export const HardCopyPage: React.FC = () => {
   const { books } = useLibrary();
@@ -28,9 +29,15 @@ export const HardCopyPage: React.FC = () => {
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-xs font-semibold text-emerald-200">
             <BookMarked className="w-3.5 h-3.5" /> ফিজিক্যাল লাইব্রেরি সার্ভিস
           </div>
-          <h1 className="text-2xl sm:text-4xl font-extrabold">হার্ড কপি ধার করুন</h1>
+          <h1 className="text-2xl sm:text-4xl font-extrabold">
+            <EditableText contentKey="hardcopy_banner_title" defaultText="হার্ড কপি ধার করুন" />
+          </h1>
           <p className="text-sm sm:text-base text-emerald-100 leading-relaxed">
-            আপনার পছন্দের ইসলামিক, সিলেবাস ও একাডেমিক বই সরাসরি লাইব্রেরি থেকে ধার নিতে পারেন। আবেদন অনুমোদনের পর ক্যাম্পাস অথবা থানার বাসা থেকে বইটি হাতে তুলে দেওয়া হবে।
+            <EditableText
+              contentKey="hardcopy_banner_desc"
+              defaultText="আপনার পছন্দের ইসলামিক, সিলেবাস ও একাডেমিক বই সরাসরি লাইব্রেরি থেকে ধার নিতে পারেন। আবেদন অনুমোদনের পর ক্যাম্পাস অথবা থানার বাসা থেকে বইটি হাতে তুলে দেওয়া হবে।"
+              multiline
+            />
           </p>
 
           <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 pt-3 text-xs text-emerald-200">

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { UserDashboardLayout } from '../../components/layout/UserDashboardLayout';
 import { useLibrary } from '../../context/LibraryContext';
+import { useAuth } from '../../context/AuthContext';
 import { NotificationItem } from '../../types';
 import { formatBengaliDate, toBengaliNumber } from '../../lib/utils';
 import {
@@ -15,15 +16,23 @@ import {
 
 export const NotificationsPage: React.FC = () => {
   const { notifications, markNotificationAsRead, markAllNotificationsAsRead } = useLibrary();
+  const { user, isAdmin } = useAuth();
   const [filter, setFilter] = useState<'all' | 'unread' | 'read'>('all');
 
-  const filtered = notifications.filter((n) => {
+  const validNotifications = notifications.filter((n) => {
+    if (n.recipientUid === 'all') return true;
+    if (user && n.recipientUid === user.uid) return true;
+    if (isAdmin && (n.recipientUid === 'admin' || n.recipientUid === 'all')) return true;
+    return false;
+  });
+
+  const filtered = validNotifications.filter((n) => {
     if (filter === 'unread') return !n.read;
     if (filter === 'read') return n.read;
     return true;
   });
 
-  const unreadCount = notifications.filter((n) => !n.read).length;
+  const unreadCount = validNotifications.filter((n) => !n.read).length;
 
   const getIcon = (type: NotificationItem['type']) => {
     switch (type) {
@@ -76,7 +85,7 @@ export const NotificationsPage: React.FC = () => {
                 : 'border-transparent text-brand-muted hover:text-brand-text'
             }`}
           >
-            সব ({toBengaliNumber(notifications.length)})
+            সব ({toBengaliNumber(validNotifications.length)})
           </button>
           <button
             onClick={() => setFilter('unread')}

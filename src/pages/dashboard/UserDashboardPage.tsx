@@ -22,9 +22,13 @@ export const UserDashboardPage: React.FC = () => {
   const { user } = useAuth();
   const { requests, loans, notifications, confirmBorrowerReturn } = useLibrary();
 
-  const activeLoans = loans.filter((l) => l.status === 'active' || l.status === 'return_requested');
-  const pendingRequests = requests.filter((r) => r.status === 'pending');
-  const unreadNotifs = notifications.filter((n) => !n.read);
+  const myLoans = loans.filter((l) => !user || l.borrowerUid === user.uid);
+  const activeLoans = myLoans.filter((l) => l.status === 'active' || l.status === 'return_requested');
+  const myRequests = requests.filter((r) => !user || r.borrowerUid === user.uid);
+  const pendingRequests = myRequests.filter((r) => r.status === 'pending');
+  const unreadNotifs = notifications.filter(
+    (n) => !n.read && (n.recipientUid === 'all' || (user && n.recipientUid === user.uid))
+  );
 
   return (
     <UserDashboardLayout>

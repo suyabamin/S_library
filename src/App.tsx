@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LibraryProvider } from './context/LibraryContext';
+import { SiteContentProvider } from './context/SiteContentContext';
 import { SiteHeader } from './components/common/SiteHeader';
 import { SiteFooter } from './components/common/SiteFooter';
 
@@ -91,9 +92,10 @@ export const App: React.FC = () => {
   return (
     <AuthProvider>
       <LibraryProvider>
-        <BrowserRouter>
-          <ScrollToTop />
-          <Routes>
+        <SiteContentProvider>
+          <BrowserRouter>
+            <ScrollToTop />
+            <Routes>
             {/* Public Routes with Standard Layout */}
             <Route
               path="/"
@@ -393,6 +395,7 @@ export const App: React.FC = () => {
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>
         </BrowserRouter>
+        </SiteContentProvider>
       </LibraryProvider>
     </AuthProvider>
   );

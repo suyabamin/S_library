@@ -2,13 +2,16 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { UserDashboardLayout } from '../../components/layout/UserDashboardLayout';
 import { useLibrary } from '../../context/LibraryContext';
+import { useAuth } from '../../context/AuthContext';
 import { EmptyState } from '../../components/common/EmptyState';
 import { BookOpen, Calendar, RotateCcw, CheckCircle2, MessageSquare } from 'lucide-react';
 
 export const MyLoansPage: React.FC = () => {
   const { loans, confirmBorrowerReturn, chatConversations } = useLibrary();
+  const { user } = useAuth();
 
-  const activeLoans = loans.filter((l) => l.status === 'active' || l.status === 'return_requested');
+  const myLoans = loans.filter((l) => !user || l.borrowerUid === user.uid);
+  const activeLoans = myLoans.filter((l) => l.status === 'active' || l.status === 'return_requested');
 
   return (
     <UserDashboardLayout>

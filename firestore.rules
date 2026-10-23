@@ -114,5 +114,11 @@ service cloud.firestore {
     match /auditLogs/{logId} {
       allow read, write: if isAuthenticated();
     }
+
+    // 12. Site Content & Settings (Visual CMS):
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
   }
 }

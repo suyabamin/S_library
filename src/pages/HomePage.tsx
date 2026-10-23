@@ -17,6 +17,7 @@ import { useLibrary } from '../context/LibraryContext';
 import { BookCard } from '../components/book/BookCard';
 import { INITIAL_HISTORY_ARTICLES } from '../lib/seedData';
 import { toBengaliNumber } from '../lib/utils';
+import { EditableText } from '../context/SiteContentContext';
 
 export const HomePage: React.FC = () => {
   const { books, categories } = useLibrary();
@@ -49,22 +50,22 @@ export const HomePage: React.FC = () => {
           {/* Badge */}
           <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold text-emerald-200">
             <Shield className="w-3.5 h-3.5 text-emerald-300" />
-            <span>বাংলাদেশ ইসলামী ছাত্রশিবির • UIU থানা শাখা</span>
+            <EditableText contentKey="hero_badge" defaultText="বাংলাদেশ ইসলামী ছাত্রশিবির • UIU থানা শাখা" />
           </div>
 
           {/* Main Title & Tagline */}
           <div className="space-y-2">
             <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white drop-shadow-md">
-              শিবির লাইব্রেরি, <span className="text-emerald-300">UIU থানা</span>
+              <EditableText contentKey="hero_title" defaultText="শিবির লাইব্রেরি, UIU থানা" />
             </h1>
             <p className="text-lg sm:text-2xl font-bold text-emerald-200 tracking-wider">
-              শহিদি কাফেলা
+              <EditableText contentKey="hero_tagline" defaultText="শহিদি কাফেলা" />
             </p>
           </div>
 
           {/* Slogan Quote from Reference */}
           <p className="text-base sm:text-xl font-medium text-emerald-100 max-w-2xl mx-auto italic drop-shadow-sm">
-            “জ্ঞান হোক সংগ্রামের শক্তি, বই হোক পরিবর্তনের হাতিয়ার”
+            <EditableText contentKey="hero_quote" defaultText="“জ্ঞান হোক সংগ্রামের শক্তি, বই হোক পরিবর্তনের হাতিয়ার”" />
           </p>
 
           {/* Integrated Search Bar inside Hero */}
@@ -124,9 +125,11 @@ export const HomePage: React.FC = () => {
             <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
               <BookOpen className="w-7 h-7 text-emerald-300" />
             </div>
-            <h3 className="text-xl sm:text-2xl font-bold mb-2">অনলাইন লাইব্রেরি</h3>
+            <h3 className="text-xl sm:text-2xl font-bold mb-2">
+              <EditableText contentKey="card1_title" defaultText="অনলাইন লাইব্রেরি" />
+            </h3>
             <p className="text-emerald-100 text-sm leading-relaxed mb-6">
-              বই পড়ুন, জ্ঞান অর্জন করুন এবং নির্ধারিত বইসমূহের পিডিএফ সরাসরি ডাউনলোড করুন।
+              <EditableText contentKey="card1_desc" defaultText="বই পড়ুন, জ্ঞান অর্জন করুন এবং নির্ধারিত বইসমূহের পিডিএফ সরাসরি ডাউনলোড করুন।" multiline />
             </p>
             <span className="inline-flex items-center gap-2 text-xs font-bold text-emerald-300 group-hover:text-white transition">
               লাইব্রেরি প্রবেশ করুন <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -141,9 +144,11 @@ export const HomePage: React.FC = () => {
             <div className="w-14 h-14 rounded-2xl bg-emerald-400/20 backdrop-blur-md flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
               <BookMarked className="w-7 h-7 text-white" />
             </div>
-            <h3 className="text-xl sm:text-2xl font-bold mb-2">হার্ড কপি ধার করুন</h3>
+            <h3 className="text-xl sm:text-2xl font-bold mb-2">
+              <EditableText contentKey="card2_title" defaultText="হার্ড কপি ধার করুন" />
+            </h3>
             <p className="text-emerald-100 text-sm leading-relaxed mb-6">
-              আপনার পছন্দের সিলেবাস ও ইসলামিক বই সরাসরি ক্যাম্পাসে অথবা থানার বাসা থেকে সংগ্রহ করুন।
+              <EditableText contentKey="card2_desc" defaultText="আপনার পছন্দের সিলেবাস ও ইসলামিক বই সরাসরি ক্যাম্পাসে অথবা থানার বাসা থেকে সংগ্রহ করুন।" multiline />
             </p>
             <span className="inline-flex items-center gap-2 text-xs font-bold text-emerald-200 group-hover:text-white transition">
               বইয়ের তালিকা ও আবেদন <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -158,9 +163,11 @@ export const HomePage: React.FC = () => {
             <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
               <History className="w-7 h-7 text-cyan-300" />
             </div>
-            <h3 className="text-xl sm:text-2xl font-bold mb-2">সংগঠনের ইতিহাস</h3>
+            <h3 className="text-xl sm:text-2xl font-bold mb-2">
+              <EditableText contentKey="card3_title" defaultText="সংগঠনের ইতিহাস" />
+            </h3>
             <p className="text-cyan-100 text-sm leading-relaxed mb-6">
-              UIU শাখা শিবিরের কার্যক্রমের প্রারম্ভিক ইতিহাস, আলোকোজ্জ্বল স্মৃতি ও গৌরবময় পথচলা।
+              <EditableText contentKey="card3_desc" defaultText="UIU শাখা শিবিরের কার্যক্রমের প্রারম্ভিক ইতিহাস, আলোকোজ্জ্বল স্মৃতি ও গৌরবময় পথচলা।" multiline />
             </p>
             <span className="inline-flex items-center gap-2 text-xs font-bold text-cyan-300 group-hover:text-white transition">
               ইতিহাস পাঠ করুন <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
@@ -175,10 +182,10 @@ export const HomePage: React.FC = () => {
           <div>
             <h2 className="text-xl sm:text-2xl font-bold text-brand-text flex items-center gap-2">
               <Sparkles className="w-5 h-5 text-amber-500" />
-              <span>সর্বশেষ সংযোজিত বই</span>
+              <EditableText contentKey="sec1_title" defaultText="সর্বশেষ সংযোজিত বই" />
             </h2>
             <p className="text-xs sm:text-sm text-brand-muted mt-0.5">
-              লাইব্রেরিতে সম্প্রতি যুক্ত হওয়া নতুন বই ও প্রকাশনা
+              <EditableText contentKey="sec1_sub" defaultText="লাইব্রেরিতে সম্প্রতি যুক্ত হওয়া নতুন বই ও প্রকাশনা" />
             </p>
           </div>
           <Link

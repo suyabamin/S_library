@@ -135,6 +135,10 @@ export interface BorrowRequest {
   adminUid?: string;
   decisionReason?: string;
   chatId?: string;
+  adminHandoverConfirmed?: boolean;
+  adminHandoverConfirmedAt?: string;
+  borrowerReceivedConfirmed?: boolean;
+  borrowerReceivedConfirmedAt?: string;
   createdAt: string;
   updatedAt: string;
 }

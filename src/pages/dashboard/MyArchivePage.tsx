@@ -1,14 +1,16 @@
 import React from 'react';
 import { UserDashboardLayout } from '../../components/layout/UserDashboardLayout';
 import { useLibrary } from '../../context/LibraryContext';
+import { useAuth } from '../../context/AuthContext';
 import { EmptyState } from '../../components/common/EmptyState';
 import { History, BookOpen, CheckCircle } from 'lucide-react';
 import { formatBengaliDate } from '../../lib/utils';
 
 export const MyArchivePage: React.FC = () => {
   const { loans } = useLibrary();
+  const { user } = useAuth();
 
-  const returnedLoans = loans.filter((l) => l.status === 'returned');
+  const returnedLoans = loans.filter((l) => (!user || l.borrowerUid === user.uid) && l.status === 'returned');
 
   return (
     <UserDashboardLayout>

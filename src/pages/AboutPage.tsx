@@ -1,5 +1,6 @@
 import React from 'react';
 import { Shield, BookOpen, Clock, MapPin, CheckCircle2, Phone, Mail } from 'lucide-react';
+import { EditableText } from '../context/SiteContentContext';
 
 export const AboutPage: React.FC = () => {
   return (
@@ -10,13 +11,13 @@ export const AboutPage: React.FC = () => {
             <img src="/assets/logo.svg" alt="শিবির লাইব্রেরি লোগো" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-brand-text">
-            শিবির লাইব্রেরি, <span className="text-primary">UIU থানা</span>
+            <EditableText contentKey="about_title" defaultText="শিবির লাইব্রেরি, UIU থানা" />
           </h1>
           <p className="text-xs text-primary font-bold tracking-widest uppercase">
-            শহিদি কাফেলা
+            <EditableText contentKey="about_tagline" defaultText="শহিদি কাফেলা" />
           </p>
           <p className="text-sm text-brand-muted max-w-xl mx-auto italic">
-            “জ্ঞান হোক সংগ্রামের শক্তি, বই হোক পরিবর্তনের হাতিয়ার”
+            <EditableText contentKey="about_quote" defaultText="“জ্ঞান হোক সংগ্রামের শক্তি, বই হোক পরিবর্তনের হাতিয়ার”" />
           </p>
         </div>
 
@@ -24,10 +25,14 @@ export const AboutPage: React.FC = () => {
         <div className="space-y-3">
           <h2 className="text-lg font-bold text-brand-text flex items-center gap-2">
             <Shield className="w-5 h-5 text-primary" />
-            <span>আমাদের লক্ষ্য ও উদ্দেশ্য</span>
+            <EditableText contentKey="about_mission_title" defaultText="আমাদের লক্ষ্য ও উদ্দেশ্য" />
           </h2>
           <p className="text-sm text-brand-muted leading-relaxed">
-            ইউনাইটেড ইন্টারন্যাশনাল ইউনিভার্সিটিতে (UIU) অধ্যয়নরত শিক্ষার্থীদের জ্ঞানপিপাসা নিবারণ, চারিত্রিক উৎকর্ষ সাধন এবং একাডেমিক ও দ্বীনি শিক্ষার সমন্বয়ে একটি আদর্শিক প্রজন্ম গড়ে তোলাই শিবির লাইব্রেরির মূল লক্ষ্য। এখানে সাধারণ সিলেবাস, ইসলামী চিন্তাধারা, কুরআন-সুন্নাহর তাফসীর এবং আত্মগঠনমূলক বইসমূহ উন্মুক্তভাবে পাঠকদের কাছে পৌঁছে দেওয়া হয়।
+            <EditableText
+              contentKey="about_mission_desc"
+              defaultText="ইউনাইটেড ইন্টারন্যাশনাল ইউনিভার্সিটিতে (UIU) অধ্যয়নরত শিক্ষার্থীদের জ্ঞানপিপাসা নিবারণ, চারিত্রিক উৎকর্ষ সাধন এবং একাডেমিক ও দ্বীনি শিক্ষার সমন্বয়ে একটি আদর্শিক প্রজন্ম গড়ে তোলাই শিবির লাইব্রেরির মূল লক্ষ্য। এখানে সাধারণ সিলেবাস, ইসলামী চিন্তাধারা, কুরআন-সুন্নাহর তাফসীর এবং আত্মগঠনমূলক বইসমূহ উন্মুক্তভাবে পাঠকদের কাছে পৌঁছে দেওয়া হয়।"
+              multiline
+            />
           </p>
         </div>
 

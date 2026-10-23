@@ -48,6 +48,8 @@ interface LibraryContextType {
   }) => Promise<BorrowRequest>;
   approveBorrowRequest: (requestId: string, reason?: string) => Promise<void>;
   rejectBorrowRequest: (requestId: string, reason: string) => Promise<void>;
+  confirmAdminHandover: (requestId: string) => Promise<void>;
+  confirmBorrowerReceipt: (requestId: string) => Promise<void>;
   confirmBorrowerReturn: (loanId: string) => Promise<void>;
   confirmAdminReturnReceipt: (loanId: string) => Promise<void>;
   sendMessage: (chatId: string, text: string) => Promise<void>;
@@ -71,97 +73,33 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   const [requests, setRequests] = useState<BorrowRequest[]>(() => {
     const saved = localStorage.getItem('shibir_library_requests');
-    return saved ? JSON.parse(saved) : INITIAL_REQUESTS;
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [loans, setLoans] = useState<Loan[]>(() => {
     const saved = localStorage.getItem('shibir_library_loans');
-    if (saved) return JSON.parse(saved);
-    // Initial loan from approved request
-    return [
-      {
-        id: 'loan-1',
-        requestId: 'req-1',
-        borrowerUid: 'demo-user-1',
-        borrowerName: 'রাফি হাসান',
-        bookId: 'book-1',
-        bookTitle: 'তাফসীর ইবনে কাসীর (১ম খণ্ড)',
-        bookCover: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=600&auto=format&fit=crop',
-        borrowDate: '2026-03-12',
-        dueDate: '2026-03-26',
-        status: 'active',
-        createdAt: '2026-03-12T10:30:00Z',
-        updatedAt: '2026-03-12T10:30:00Z',
-      },
-    ];
+    return saved ? JSON.parse(saved) : [];
   });
 
   const [notifications, setNotifications] = useState<NotificationItem[]>(() => {
     const saved = localStorage.getItem('shibir_library_notifications');
-    return saved ? JSON.parse(saved) : INITIAL_NOTIFICATIONS;
+    return saved ? JSON.parse(saved) : [];
   });
 
-  const [chatConversations, setChatConversations] = useState<ChatConversation[]>([
-    {
-      id: 'chat-1',
-      requestId: 'req-1',
-      bookTitle: 'তাফসীর ইবনে কাসীর (১ম খণ্ড)',
-      borrowerUid: 'demo-user-1',
-      borrowerName: 'রাফি হাসান',
-      participantAdminUids: ['admin-1'],
-      active: true,
-      lastMessageAt: '2026-03-12T11:05:00Z',
-      lastMessagePreview: 'ঠিক আছে ভাই। নিয়ে আসার সময় আমাকে জানাবেন।',
-      unreadCount: 1,
-      createdAt: '2026-03-12T10:30:00Z',
-    },
-  ]);
-
-  const [activeChatMessages, setActiveChatMessages] = useState<Record<string, ChatMessage[]>>({
-    'chat-1': [
-      {
-        id: 'msg-1',
-        chatId: 'chat-1',
-        senderUid: 'admin-1',
-        senderName: 'আব্দুর রহমান (দায়িত্বশীল)',
-        senderRole: 'admin',
-        text: 'আসসালামু আলাইকুম। আপনার রিকোয়েস্টটি অনুমোদিত হয়েছে। আপনি কি থানার বাসা থেকে বইটি নিতে পারবেন?',
-        createdAt: '2026-03-12T10:35:00Z',
-      },
-      {
-        id: 'msg-2',
-        chatId: 'chat-1',
-        senderUid: 'demo-user-1',
-        senderName: 'রাফি হাসান',
-        senderRole: 'user',
-        text: 'ওয়ালাইকুম আসসালাম ভাই, আমি এখনই নিতে পারছি। ধন্যবাদ।',
-        createdAt: '2026-03-12T10:50:00Z',
-      },
-      {
-        id: 'msg-3',
-        chatId: 'chat-1',
-        senderUid: 'admin-1',
-        senderName: 'আব্দুর রহমান (দায়িত্বশীল)',
-        senderRole: 'admin',
-        text: 'ঠিক আছে ভাই। নিয়ে আসার সময় আমাকে জানাবেন।',
-        createdAt: '2026-03-12T11:05:00Z',
-      },
-    ],
+  const [chatConversations, setChatConversations] = useState<ChatConversation[]>(() => {
+    const saved = localStorage.getItem('shibir_library_chats');
+    return saved ? JSON.parse(saved) : [];
   });
 
-  const [auditLogs, setAuditLogs] = useState<AuditLog[]>([
-    {
-      id: 'audit-1',
-      action: 'APPROVE_REQUEST',
-      actorUid: 'admin-1',
-      actorName: 'আব্দুর রহমান',
-      actorRole: 'admin',
-      entityType: 'request',
-      entityId: 'req-1',
-      details: 'রিকোয়েস্ট অনুমোদন করা হয়েছে এবং ১টি কপি রিজার্ভ করা হয়েছে।',
-      createdAt: '2026-03-12T10:30:00Z',
-    },
-  ]);
+  const [activeChatMessages, setActiveChatMessages] = useState<Record<string, ChatMessage[]>>(() => {
+    const saved = localStorage.getItem('shibir_library_messages');
+    return saved ? JSON.parse(saved) : {};
+  });
+
+  const [auditLogs, setAuditLogs] = useState<AuditLog[]>(() => {
+    const saved = localStorage.getItem('shibir_library_audits');
+    return saved ? JSON.parse(saved) : [];
+  });
 
   // Persist state updates
   useEffect(() => {
@@ -180,9 +118,25 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     localStorage.setItem('shibir_library_notifications', JSON.stringify(notifications));
   }, [notifications]);
 
-  const unreadNotificationCount = notifications.filter(
-    (n) => !n.read && (!user || n.recipientUid === user.uid)
-  ).length;
+  useEffect(() => {
+    localStorage.setItem('shibir_library_chats', JSON.stringify(chatConversations));
+  }, [chatConversations]);
+
+  useEffect(() => {
+    localStorage.setItem('shibir_library_messages', JSON.stringify(activeChatMessages));
+  }, [activeChatMessages]);
+
+  useEffect(() => {
+    localStorage.setItem('shibir_library_audits', JSON.stringify(auditLogs));
+  }, [auditLogs]);
+
+  const unreadNotificationCount = notifications.filter((n) => {
+    if (n.read) return false;
+    if (n.recipientUid === 'all') return true;
+    if (user && n.recipientUid === user.uid) return true;
+    if (user?.role === 'admin' && (n.recipientUid === 'admin' || n.recipientUid === 'all')) return true;
+    return false;
+  }).length;
 
   const getBookById = (id: string) => books.find((b) => b.id === id);
   const getCategoryBySlug = (slug: string) => categories.find((c) => c.slug === slug || c.id === slug);
@@ -278,21 +232,69 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return newReq;
   };
 
+  const createActiveLoanRecord = (req: BorrowRequest) => {
+    const newLoan: Loan = {
+      id: generateId('loan'),
+      requestId: req.id,
+      borrowerUid: req.borrowerUid,
+      borrowerName: req.borrowerName,
+      bookId: req.bookId,
+      bookTitle: req.bookTitle,
+      bookCover: req.bookCover,
+      borrowDate: req.borrowDate,
+      dueDate: req.dueDate,
+      status: 'active',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+    };
+    setLoans((prev) => [newLoan, ...prev.filter((l) => l.requestId !== req.id)]);
+
+    // Notify borrower that loan is officially active in "আমার সক্রিয় ধার"
+    const now = new Date().toISOString();
+    setNotifications((prev) => [
+      {
+        id: generateId('notif'),
+        recipientUid: req.borrowerUid,
+        type: 'request_approved',
+        title: 'বইয়ের ধার এখন সক্রিয়! 📚',
+        body: `উভয় পক্ষ নিশ্চিত করায় "${req.bookTitle}" বইটি আপনার "আমার সক্রিয় ধার"-এ সংরক্ষিত হয়েছে। ফেরত দেওয়ার তারিখ: ${req.dueDate}`,
+        relatedType: 'loan',
+        relatedId: newLoan.id,
+        createdAt: now,
+        read: false,
+      },
+      {
+        id: generateId('notif'),
+        recipientUid: 'admin',
+        type: 'request_approved',
+        title: 'বই হস্তান্তর সফলভাবে সম্পন্ন হয়েছে ✅',
+        body: `${req.borrowerName}-কে "${req.bookTitle}" বইটির সফল হস্তান্তর নিশ্চিত করা হয়েছে।`,
+        relatedType: 'loan',
+        relatedId: newLoan.id,
+        createdAt: now,
+        read: false,
+      },
+      ...prev,
+    ]);
+  };
+
   const approveBorrowRequest = async (requestId: string, reason?: string) => {
     const req = requests.find((r) => r.id === requestId);
     if (!req) return;
 
-    const chatId = generateId('chat');
+    const chatId = req.chatId || generateId('chat');
 
-    // 1. Update Request
+    // 1. Update Request - wait for physical handover confirmations before activating loan
     setRequests((prev) =>
       prev.map((r) =>
         r.id === requestId
           ? {
               ...r,
               status: 'approved',
-              decisionReason: reason || 'অনুমোদন দেওয়া হয়েছে।',
+              decisionReason: reason || 'অনুমোদন দেওয়া হয়েছে। বই হস্তান্তরের অপেক্ষায়।',
               chatId,
+              adminHandoverConfirmed: false,
+              borrowerReceivedConfirmed: false,
               updatedAt: new Date().toISOString(),
             }
           : r
@@ -309,24 +311,7 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       })
     );
 
-    // 3. Create Loan Record
-    const newLoan: Loan = {
-      id: generateId('loan'),
-      requestId,
-      borrowerUid: req.borrowerUid,
-      borrowerName: req.borrowerName,
-      bookId: req.bookId,
-      bookTitle: req.bookTitle,
-      bookCover: req.bookCover,
-      borrowDate: req.borrowDate,
-      dueDate: req.dueDate,
-      status: 'active',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setLoans((prev) => [newLoan, ...prev]);
-
-    // 4. Activate Chat Conversation
+    // 3. Activate Chat Conversation
     const newChat: ChatConversation = {
       id: chatId,
       requestId,
@@ -340,32 +325,33 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       unreadCount: 1,
       createdAt: new Date().toISOString(),
     };
-    setChatConversations((prev) => [newChat, ...prev]);
+    setChatConversations((prev) => [newChat, ...prev.filter((c) => c.id !== chatId)]);
 
     // Initial message
     setActiveChatMessages((prev) => ({
       ...prev,
       [chatId]: [
+        ...(prev[chatId] || []),
         {
           id: generateId('msg'),
           chatId,
           senderUid: user?.uid || 'admin-1',
           senderName: user?.displayName || 'লাইব্রেরি দায়িত্বশীল',
           senderRole: 'admin',
-          text: `আসসালামু আলাইকুম ${req.borrowerName} ভাই। "${req.bookTitle}" বইটির জন্য আপনার ধার নেওয়ার আবেদনটি অনুমোদিত হয়েছে। দয়া করে বই গ্রহণের স্থান ও সময় নিশ্চিত করুন।`,
+          text: `আসসালামু আলাইকুম ${req.borrowerName} ভাই। "${req.bookTitle}" বইটির জন্য আপনার ধার নেওয়ার আবেদনটি অনুমোদিত হয়েছে। দয়া করে বই গ্রহণের স্থান ও সময় নিশ্চিত করুন। উভয় পক্ষ নিশ্চিত করলে বইটি সক্রিয় ধারে যুক্ত হবে।`,
           createdAt: new Date().toISOString(),
         },
       ],
     }));
 
-    // 5. Notify Borrower
+    // 4. Notify Borrower
     setNotifications((prev) => [
       {
         id: generateId('notif'),
         recipientUid: req.borrowerUid,
         type: 'request_approved',
-        title: 'আপনার বই রিকোয়েস্ট অনুমোদিত হয়েছে! 🎉',
-        body: `"${req.bookTitle}" বইটি অনুমোদিত হয়েছে। দায়িত্বশীল ভাইয়ের সাথে চ্যাটে যোগাযোগ করে বইটি সংগ্রহ করুন।`,
+        title: 'বই রিকোয়েস্ট অনুমোদিত হয়েছে! 🎉',
+        body: `"${req.bookTitle}" বইটি অনুমোদিত হয়েছে। বই হাতে পাওয়ার পর "বইটি হাতে পেয়েছি" চেপে নিশ্চিত করুন।`,
         relatedType: 'request',
         relatedId: requestId,
         createdAt: new Date().toISOString(),
@@ -374,7 +360,7 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       ...prev,
     ]);
 
-    // 6. Audit Log
+    // 5. Audit Log
     setAuditLogs((prev) => [
       {
         id: generateId('audit'),
@@ -384,11 +370,91 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
         actorRole: 'admin',
         entityType: 'request',
         entityId: requestId,
-        details: `আবেদন অনুমোদন করা হয়েছে। ঋণ আইডি: ${newLoan.id}`,
+        details: `আবেদন অনুমোদন করা হয়েছে। উভয় পক্ষের হস্তান্তর নিশ্চিতকরণের অপেক্ষা।`,
         createdAt: new Date().toISOString(),
       },
       ...prev,
     ]);
+  };
+
+  const confirmAdminHandover = async (requestId: string) => {
+    const req = requests.find((r) => r.id === requestId);
+    if (!req) return;
+
+    const isBothConfirmed = req.borrowerReceivedConfirmed === true;
+    const now = new Date().toISOString();
+
+    setRequests((prev) =>
+      prev.map((r) => {
+        if (r.id !== requestId) return r;
+        return {
+          ...r,
+          adminHandoverConfirmed: true,
+          adminHandoverConfirmedAt: now,
+          status: isBothConfirmed ? 'borrowed' : r.status,
+          updatedAt: now,
+        };
+      })
+    );
+
+    if (isBothConfirmed) {
+      createActiveLoanRecord(req);
+    } else {
+      setNotifications((prev) => [
+        {
+          id: generateId('notif'),
+          recipientUid: req.borrowerUid,
+          type: 'request_approved',
+          title: 'এডমিন বই হস্তান্তর নিশ্চিত করেছেন',
+          body: `দায়িত্বশীল ভাই "${req.bookTitle}" বইটি হস্তান্তর করেছেন। আপনি বইটি গ্রহণ করে থাকলে "বইটি হাতে পেয়েছি" চাপুন।`,
+          relatedType: 'request',
+          relatedId: requestId,
+          createdAt: now,
+          read: false,
+        },
+        ...prev,
+      ]);
+    }
+  };
+
+  const confirmBorrowerReceipt = async (requestId: string) => {
+    const req = requests.find((r) => r.id === requestId);
+    if (!req) return;
+
+    const isBothConfirmed = req.adminHandoverConfirmed === true;
+    const now = new Date().toISOString();
+
+    setRequests((prev) =>
+      prev.map((r) => {
+        if (r.id !== requestId) return r;
+        return {
+          ...r,
+          borrowerReceivedConfirmed: true,
+          borrowerReceivedConfirmedAt: now,
+          status: isBothConfirmed ? 'borrowed' : r.status,
+          updatedAt: now,
+        };
+      })
+    );
+
+    if (isBothConfirmed) {
+      createActiveLoanRecord(req);
+    } else {
+      setNotifications((prev) => [
+        {
+          id: generateId('notif'),
+          recipientUid: 'admin',
+          type: 'request_approved',
+          title: 'পাঠক বই পাওয়ার কথা জানিয়েছেন',
+          body: `পাঠক ${req.borrowerName} "${req.bookTitle}" বইটি হাতে পাওয়ার নিশ্চিতকরণ দিয়েছেন। আপনার হস্তান্তর নিশ্চিত করুন।`,
+          relatedType: 'request',
+          relatedId: requestId,
+          createdAt: now,
+          read: false,
+        },
+        ...prev,
+      ]);
+    }
   };
 
   const rejectBorrowRequest = async (requestId: string, reason: string) => {
@@ -563,6 +629,8 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
         submitBorrowRequest,
         approveBorrowRequest,
         rejectBorrowRequest,
+        confirmAdminHandover,
+        confirmBorrowerReceipt,
         confirmBorrowerReturn,
         confirmAdminReturnReceipt,
         sendMessage,
