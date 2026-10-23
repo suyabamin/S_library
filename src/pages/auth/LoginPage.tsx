@@ -47,12 +47,6 @@ export const LoginPage: React.FC = () => {
     }
   };
 
-  const handleQuickAdminLogin = async () => {
-    setLoading(true);
-    await login('admin@shibir.library', 'admin123', 'admin');
-    navigate('/admin');
-  };
-
   return (
     <div className="min-h-[80vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
       <div className="max-w-md w-full bg-white rounded-card shadow-xl border border-brand-border p-8 space-y-6">
@@ -146,17 +140,6 @@ export const LoginPage: React.FC = () => {
             {loading ? 'লগইন হচ্ছে...' : 'লগইন'}
           </button>
         </form>
-
-        {/* Quick Admin Test Trigger */}
-        <div className="pt-2 text-center">
-          <button
-            onClick={handleQuickAdminLogin}
-            type="button"
-            className="text-xs text-amber-700 hover:text-amber-800 font-semibold inline-flex items-center gap-1 hover:underline"
-          >
-            <ShieldCheck className="w-3.5 h-3.5" /> এডমিন একাউন্টে সরাসরি প্রবেশ করুন
-          </button>
-        </div>
 
         <div className="pt-4 border-t border-brand-border text-center text-xs text-brand-muted">
           <span>নতুন একাউন্ট চাই? </span>
