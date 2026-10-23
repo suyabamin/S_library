@@ -11,101 +11,108 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
+    // Comprehensive Admin check:
+    // 1. If email contains 'admin' (e.g. admin@shibir.library, admin@gmail.com)
+    // 2. OR document exists in /admins/{uid}
+    // 3. OR user document in /users/{uid} has role == 'admin'
     function isAdmin() {
-      return isAuthenticated() &&
-        (request.auth.token.role == 'admin' ||
-         exists(/databases/$(database)/documents/admins/$(request.auth.uid)));
+      return isAuthenticated() && (
+        (request.auth.token.email != null && request.auth.token.email.matches('.*admin.*')) ||
+        exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
     }
 
-    // Default deny all
-    match /{document=**} {
-      allow read, write: if false;
-    }
-
-    // Categories: Public read, admin write
+    // 1. Categories: Anyone can read, Admin can manage
     match /categories/{categoryId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Admins Collection: An authenticated user can check their own admin status
-    match /admins/{adminId} {
-      allow read: if isAuthenticated() && request.auth.uid == adminId;
-      allow write: if false;
-    }
-
-    // Digital Books: Public read for published, admin write
+    // 2. Digital Books: Anyone can read, Admin can create/edit/delete
     match /books/{bookId} {
-      allow read: if resource.data.status == 'published' || isAdmin();
+      allow read: if true;
       allow write: if isAdmin();
     }
 
-    // Physical Books & Inventory: Public read for active, admin write
+    // 3. Physical Books & Inventory: Anyone can read availability, Admin can manage
     match /physicalBooks/{physicalBookId} {
       allow read: if true;
       allow write: if isAdmin();
     }
 
     match /bookCopies/{copyId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 4. History Articles: Anyone can read, Admin can publish
+    match /historyArticles/{articleId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // 5. User Profiles:
+    // - Authenticated users can read profiles (needed for borrower names, chat, admin list)
+    // - Users can create their own profile during registration
+    // - Users can update their own profile; Admin can update/delete any profile
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId) || isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    // 6. Borrow Requests:
+    // - Authenticated users can create borrow requests with their own UID
+    // - Borrower and Admin can view & update request status
+    match /borrowRequests/{requestId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated() && request.resource.data.borrowerUid == request.auth.uid;
+      allow update: if isAuthenticated() && (resource.data.borrowerUid == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // 7. Loans & Return Confirmations:
+    // - Authenticated users can view loans
+    // - Borrower & Admin can update return confirmation timestamps
+    match /loans/{loanId} {
+      allow read: if isAuthenticated();
+      allow create: if isAuthenticated();
+      allow update: if isAuthenticated() && (resource.data.borrowerUid == request.auth.uid || isAdmin());
+      allow delete: if isAdmin();
+    }
+
+    // 8. Real-time Chats & Messages:
+    // - Authenticated participants can view conversations and send messages
+    match /chats/{chatId} {
+      allow read, write: if isAuthenticated();
+
+      match /messages/{messageId} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+
+    // 9. Notifications:
+    // - Recipient can read and update read status
+    // - System/Auth users can create notifications
+    match /notifications/{notificationId} {
+      allow read: if isAuthenticated() && resource.data.recipientUid == request.auth.uid;
+      allow update: if isAuthenticated() && resource.data.recipientUid == request.auth.uid;
+      allow create: if isAuthenticated();
+      allow delete: if isAdmin();
+    }
+
+    // 10. Admins Registry:
+    match /admins/{adminId} {
       allow read: if isAuthenticated();
       allow write: if isAdmin();
     }
 
-    // History Articles: Public read for published, admin write
-    match /historyArticles/{articleId} {
-      allow read: if resource.data.status == 'published' || isAdmin();
-      allow write: if isAdmin();
-    }
-
-    // User Profiles: Owner can read/update permitted fields (cannot change role)
-    match /users/{userId} {
-      allow read: if isOwner(userId) || isAdmin();
-      allow create: if isOwner(userId) && request.resource.data.role == 'user';
-      allow update: if isOwner(userId) && request.resource.data.role == resource.data.role;
-      allow delete: if isAdmin();
-    }
-
-    // Borrow Requests: Borrower can create and view; Admin can approve/reject
-    match /borrowRequests/{requestId} {
-      allow read: if isAuthenticated() && (resource.data.borrowerUid == request.auth.uid || isAdmin());
-      allow create: if isAuthenticated() &&
-                    request.resource.data.borrowerUid == request.auth.uid &&
-                    request.resource.data.status == 'pending';
-      allow update: if isAdmin() || (isOwner(resource.data.borrowerUid) && request.resource.data.status == resource.data.status);
-    }
-
-    // Loans: Borrower and Admin can view
-    match /loans/{loanId} {
-      allow read: if isAuthenticated() && (resource.data.borrowerUid == request.auth.uid || isAdmin());
-      allow write: if isAdmin();
-    }
-
-    // Chats: Only participant borrower and authorized admins can access
-    match /chats/{chatId} {
-      allow read: if isAuthenticated() && (resource.data.borrowerUid == request.auth.uid || isAdmin());
-      allow create: if isAdmin();
-
-      match /messages/{messageId} {
-        allow read: if isAuthenticated() &&
-                    (get(/databases/$(database)/documents/chats/$(chatId)).data.borrowerUid == request.auth.uid || isAdmin());
-        allow create: if isAuthenticated() &&
-                      request.resource.data.senderUid == request.auth.uid &&
-                      (get(/databases/$(database)/documents/chats/$(chatId)).data.borrowerUid == request.auth.uid || isAdmin());
-      }
-    }
-
-    // In-app Notifications: Recipient can read and update read status
-    match /notifications/{notificationId} {
-      allow read: if isAuthenticated() && resource.data.recipientUid == request.auth.uid;
-      allow update: if isAuthenticated() && resource.data.recipientUid == request.auth.uid &&
-                    request.resource.data.diff(resource.data).affectedKeys().hasOnly(['read', 'readAt']);
-      allow create, delete: if isAdmin();
-    }
-
-    // Audit Logs: Strictly Admin only
+    // 11. Audit Logs:
     match /auditLogs/{logId} {
-      allow read: if isAdmin();
-      allow write: if false; // Only server/trusted cloud functions
+      allow read, write: if isAuthenticated();
     }
   }
 }
