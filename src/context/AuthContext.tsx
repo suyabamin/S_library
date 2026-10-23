@@ -1,7 +1,14 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import { UserProfile, UserRole, UserPosition } from '../types';
-import { auth, isFirebaseConfigured } from '../lib/firebase';
-import { onAuthStateChanged, signOut as fbSignOut } from 'firebase/auth';
+import { auth, db, isFirebaseConfigured } from '../lib/firebase';
+import {
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
+  signOut as fbSignOut,
+  onAuthStateChanged,
+  updateProfile as updateFbProfile,
+} from 'firebase/auth';
+import { doc, setDoc, getDoc, updateDoc } from 'firebase/firestore';
 
 interface AuthContextType {
   user: UserProfile | null;
@@ -11,7 +18,7 @@ interface AuthContextType {
   login: (email: string, pass: string, role?: UserRole) => Promise<boolean>;
   register: (name: string, email: string, phone: string, pass: string, position?: UserPosition) => Promise<boolean>;
   logout: () => Promise<void>;
-  updateProfile: (data: Partial<UserProfile>) => void;
+  updateProfile: (data: Partial<UserProfile>) => Promise<void>;
   switchDemoRole: (role: 'visitor' | 'user' | 'admin') => void;
 }
 
@@ -54,7 +61,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         return null;
       }
     }
-    // Default to registered user so borrower views and workflows are testable immediately
     return DEFAULT_DEMO_USER;
   });
 
@@ -66,69 +72,240 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
   }, [user]);
 
+  // Synchronize with Firebase Auth and Firestore Database
   useEffect(() => {
     if (!isFirebaseConfigured) return;
-    const unsubscribe = onAuthStateChanged(auth, (fbUser) => {
+
+    const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
-        // sync with firebase user
-        setUser((prev) => ({
-          uid: fbUser.uid,
-          displayName: fbUser.displayName || 'ব্যবহারকারী',
-          email: fbUser.email || '',
-          photoURL: fbUser.photoURL || undefined,
-          role: prev?.role || 'user',
-          status: 'active',
-          createdAt: prev?.createdAt || new Date().toISOString(),
-          updatedAt: new Date().toISOString(),
-        }));
+        try {
+          const userDocRef = doc(db, 'users', fbUser.uid);
+          const userDocSnap = await getDoc(userDocRef);
+
+          let isAdmin = false;
+          try {
+            const adminDocRef = doc(db, 'admins', fbUser.uid);
+            const adminDocSnap = await getDoc(adminDocRef);
+            isAdmin = adminDocSnap.exists() || Boolean(fbUser.email?.includes('admin'));
+          } catch {
+            // If admin collection query fails or not permitted
+            isAdmin = Boolean(fbUser.email?.includes('admin'));
+          }
+
+          if (userDocSnap.exists()) {
+            const data = userDocSnap.data() as UserProfile;
+            setUser({
+              ...data,
+              uid: fbUser.uid,
+              displayName: fbUser.displayName || data.displayName || 'ব্যবহারকারী',
+              email: fbUser.email || data.email,
+              role: isAdmin ? 'admin' : (data.role || 'user'),
+            });
+          } else {
+            // Document might not be created yet if just registered
+            setUser((prev) => ({
+              uid: fbUser.uid,
+              displayName: fbUser.displayName || prev?.displayName || 'ব্যবহারকারী',
+              email: fbUser.email || prev?.email || '',
+              photoURL: fbUser.photoURL || undefined,
+              role: isAdmin ? 'admin' : (prev?.role || 'user'),
+              status: 'active',
+              createdAt: prev?.createdAt || new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
+            }));
+          }
+        } catch (e) {
+          console.warn('Error fetching Firestore user profile:', e);
+        }
       }
     });
+
     return () => unsubscribe();
   }, []);
 
-  const login = async (email: string, _pass: string, requestedRole?: UserRole) => {
-    // Check if logging in as admin email
-    const isAdminEmail = email.includes('admin') || requestedRole === 'admin';
-    const loggedUser: UserProfile = isAdminEmail ? DEFAULT_DEMO_ADMIN : {
-      ...DEFAULT_DEMO_USER,
-      email,
-      displayName: email.split('@')[0],
-      role: 'user',
-    };
-    setUser(loggedUser);
-    return true;
+  const login = async (email: string, pass: string, requestedRole?: UserRole) => {
+    // If testing using the quick demo switcher/button
+    if (requestedRole === 'admin' && pass === 'admin123') {
+      setUser(DEFAULT_DEMO_ADMIN);
+      return true;
+    }
+
+    if (isFirebaseConfigured) {
+      try {
+        const userCredential = await signInWithEmailAndPassword(auth, email, pass);
+        const fbUser = userCredential.user;
+
+        // Fetch User record from Firestore
+        const userDocRef = doc(db, 'users', fbUser.uid);
+        const userDocSnap = await getDoc(userDocRef);
+
+        let isAdmin = false;
+        try {
+          const adminDocRef = doc(db, 'admins', fbUser.uid);
+          const adminDocSnap = await getDoc(adminDocRef);
+          isAdmin = adminDocSnap.exists() || Boolean(email.includes('admin'));
+        } catch {
+          isAdmin = Boolean(email.includes('admin'));
+        }
+
+        let profileData: UserProfile;
+
+        if (userDocSnap.exists()) {
+          const data = userDocSnap.data() as UserProfile;
+          profileData = {
+            ...data,
+            uid: fbUser.uid,
+            role: isAdmin ? 'admin' : (data.role || 'user'),
+          };
+        } else {
+          // If first login and firestore document was missing
+          profileData = {
+            uid: fbUser.uid,
+            displayName: fbUser.displayName || email.split('@')[0],
+            email: fbUser.email || email,
+            role: isAdmin ? 'admin' : 'user',
+            status: 'active',
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+          try {
+            await setDoc(userDocRef, profileData);
+          } catch (e) {
+            console.warn('Firestore doc creation fallback:', e);
+          }
+        }
+
+        setUser(profileData);
+        return true;
+      } catch (err: any) {
+        console.error('Firebase login error:', err);
+        let msg = 'লগইন ব্যর্থ হয়েছে। তথ্য যাচাই করুন।';
+        if (
+          err.code === 'auth/user-not-found' ||
+          err.code === 'auth/wrong-password' ||
+          err.code === 'auth/invalid-credential'
+        ) {
+          msg = 'ইমেইল অথবা পাসওয়ার্ড সঠিক নয়।';
+        } else if (err.code === 'auth/too-many-requests') {
+          msg = 'অতিরিক্ত ব্যর্থ চেষ্টার কারণে অ্যাকাউন্ট সাময়িকভাবে বন্ধ আছে। কিছুক্ষণ পর চেষ্টা করুন।';
+        } else if (err.code === 'auth/invalid-email') {
+          msg = 'সঠিক ইমেইল ঠিকানা প্রদান করুন।';
+        } else if (err.message) {
+          msg = err.message;
+        }
+        throw new Error(msg);
+      }
+    } else {
+      const isAdminEmail = email.includes('admin') || requestedRole === 'admin';
+      const loggedUser: UserProfile = isAdminEmail
+        ? DEFAULT_DEMO_ADMIN
+        : {
+            ...DEFAULT_DEMO_USER,
+            email,
+            displayName: email.split('@')[0],
+            role: 'user',
+          };
+      setUser(loggedUser);
+      return true;
+    }
   };
 
-  const register = async (name: string, email: string, phone: string, _pass: string, position: UserPosition = 'worker') => {
-    const newUser: UserProfile = {
-      uid: `user-${Date.now()}`,
-      displayName: name,
-      email,
-      phone,
-      position,
-      role: 'user', // Enforce: Never register as admin
-      status: 'active',
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    };
-    setUser(newUser);
-    return true;
+  const register = async (
+    name: string,
+    email: string,
+    phone: string,
+    pass: string,
+    position: UserPosition = 'worker'
+  ) => {
+    if (isFirebaseConfigured) {
+      try {
+        // 1. Create User in Firebase Authentication
+        const userCredential = await createUserWithEmailAndPassword(auth, email, pass);
+        const fbUser = userCredential.user;
+
+        // 2. Set Firebase Auth Display Name
+        await updateFbProfile(fbUser, { displayName: name });
+
+        // 3. Create Document in Cloud Firestore (collection: users)
+        const newUser: UserProfile = {
+          uid: fbUser.uid,
+          displayName: name,
+          email,
+          phone,
+          position,
+          role: 'user', // Enforce: Never register as admin from client
+          status: 'active',
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        const userDocRef = doc(db, 'users', fbUser.uid);
+        await setDoc(userDocRef, newUser);
+
+        setUser(newUser);
+        return true;
+      } catch (err: any) {
+        console.error('Firebase registration error:', err);
+        let msg = 'নিবন্ধন ব্যর্থ হয়েছে।';
+        if (err.code === 'auth/email-already-in-use') {
+          msg = 'এই ইমেইলটি ইতিমধ্যে নিবন্ধিত রয়েছে। অন্য ইমেইল ব্যবহার করুন বা লগইন করুন।';
+        } else if (err.code === 'auth/weak-password') {
+          msg = 'পাসওয়ার্ড দুর্বল। ন্যূনতম ৬ অক্ষরের পাসওয়ার্ড দিন।';
+        } else if (err.code === 'auth/invalid-email') {
+          msg = 'সঠিক ফরম্যাটের ইমেইল ঠিকানা দিন।';
+        } else if (err.code === 'auth/operation-not-allowed') {
+          msg = 'Firebase Authentication-এ Email/Password প্রদানকারী সক্রিয় করা নেই। অনুগ্রহ করে Firebase কনসোলে Email/Password সক্রিয় করুন।';
+        } else if (err.message) {
+          msg = err.message;
+        }
+        throw new Error(msg);
+      }
+    } else {
+      // Local fallback
+      const newUser: UserProfile = {
+        uid: `user-${Date.now()}`,
+        displayName: name,
+        email,
+        phone,
+        position,
+        role: 'user',
+        status: 'active',
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      };
+      setUser(newUser);
+      return true;
+    }
   };
 
   const logout = async () => {
     if (isFirebaseConfigured) {
       try {
         await fbSignOut(auth);
-      } catch {
-        // ignore
+      } catch (e) {
+        console.warn('Logout error:', e);
       }
     }
     setUser(null);
+    localStorage.removeItem('shibir_library_user');
   };
 
-  const updateProfile = (data: Partial<UserProfile>) => {
+  const updateProfile = async (data: Partial<UserProfile>) => {
     if (!user) return;
-    setUser({ ...user, ...data, updatedAt: new Date().toISOString() });
+    const updated = { ...user, ...data, updatedAt: new Date().toISOString() };
+    setUser(updated);
+
+    if (isFirebaseConfigured && auth.currentUser) {
+      try {
+        const userDocRef = doc(db, 'users', auth.currentUser.uid);
+        await updateDoc(userDocRef, {
+          ...data,
+          updatedAt: new Date().toISOString(),
+        });
+      } catch (err) {
+        console.warn('Failed to update Firestore profile document:', err);
+      }
+    }
   };
 
   const switchDemoRole = (roleType: 'visitor' | 'user' | 'admin') => {
