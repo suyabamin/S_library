@@ -27,6 +27,7 @@ export const UserDashboardLayout: React.FC<{ children: React.ReactNode }> = ({ c
 
   const menuItems = [
     { label: 'ড্যাশবোর্ড', path: '/dashboard', icon: LayoutDashboard },
+    ...(isAdmin ? [{ label: 'অ্যাডমিন প্যানেল', path: '/admin', icon: ShieldCheck, badge: 'এডমিন' }] : []),
     { label: 'আমার বই (ধার)', path: '/my-loans', icon: BookOpen },
     { label: 'পেন্ডিং রিকোয়েস্ট', path: '/my-requests', icon: BookMarked },
     { label: 'চ্যাট', path: '/chat', icon: MessageSquare },

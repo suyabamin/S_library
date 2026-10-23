@@ -11,7 +11,7 @@ export interface StorageUploadResult {
 }
 
 export class StorageService {
-  private r2PublicUrl = import.meta.env.VITE_R2_PUBLIC_URL || '';
+  private r2PublicUrl = import.meta.env.VITE_R2_PUBLIC_URL || 'https://pub-315d764fbe404bb692491d79b0e4a660.r2.dev';
 
   /**
    * Resolve an objectKey or external URL into a playable/readable URL.

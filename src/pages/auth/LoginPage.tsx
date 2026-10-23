@@ -32,7 +32,10 @@ export const LoginPage: React.FC = () => {
     setError(null);
     try {
       await login(emailOrPhone.trim(), password);
-      if (emailOrPhone.toLowerCase().includes('admin') && from === '/dashboard') {
+      const isTargetAdmin =
+        emailOrPhone.toLowerCase().includes('admin') ||
+        emailOrPhone.toLowerCase().includes('suyabamin');
+      if (isTargetAdmin && from === '/dashboard') {
         navigate('/admin', { replace: true });
       } else {
         navigate(from, { replace: true });

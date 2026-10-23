@@ -11,6 +11,8 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 import { storageService } from '../../lib/storage';
+import { storage } from '../../lib/firebase';
+import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 export const AdminAddEditBookPage: React.FC = () => {
   const { categories, addBook } = useLibrary();
@@ -33,22 +35,78 @@ export const AdminAddEditBookPage: React.FC = () => {
   const [coverPreview, setCoverPreview] = useState<string>('https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=600&auto=format&fit=crop');
   const [pdfFileName, setPdfFileName] = useState<string>('sample-book.pdf');
   const [pdfUrl, setPdfUrl] = useState<string>('https://raw.githubusercontent.com/mozilla/pdf.js/ba2edeae/web/compressed.tracemonkey-pldi-09.pdf');
+  const [uploadingPdf, setUploadingPdf] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState<number>(0);
+  const [uploadingCover, setUploadingCover] = useState(false);
 
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState(false);
 
-  const handleCoverUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      const url = URL.createObjectURL(file);
-      setCoverPreview(url);
+    if (!file) return;
+
+    setUploadingCover(true);
+    try {
+      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const storageRef = ref(storage, `books/covers/${Date.now()}_${safeName}`);
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      uploadTask.on(
+        'state_changed',
+        () => {},
+        (error) => {
+          console.warn('Cover upload fallback:', error);
+          setUploadingCover(false);
+          const fallbackUrl = URL.createObjectURL(file);
+          setCoverPreview(fallbackUrl);
+        },
+        async () => {
+          const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+          setCoverPreview(downloadUrl);
+          setUploadingCover(false);
+        }
+      );
+    } catch {
+      setUploadingCover(false);
+      setCoverPreview(URL.createObjectURL(file));
     }
   };
 
-  const handlePdfUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handlePdfUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
-    if (file) {
-      setPdfFileName(file.name);
+    if (!file) return;
+
+    setPdfFileName(file.name);
+    setUploadingPdf(true);
+    setUploadProgress(15);
+
+    try {
+      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const storageRef = ref(storage, `books/pdfs/${Date.now()}_${safeName}`);
+      const uploadTask = uploadBytesResumable(storageRef, file);
+
+      uploadTask.on(
+        'state_changed',
+        (snapshot) => {
+          const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
+          setUploadProgress(progress);
+        },
+        (error) => {
+          console.warn('PDF upload fallback:', error);
+          setUploadingPdf(false);
+          const fallbackUrl = storageService.resolveUrl(`pdfs/${safeName}`);
+          setPdfUrl(fallbackUrl);
+        },
+        async () => {
+          const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+          setPdfUrl(downloadUrl);
+          setUploadingPdf(false);
+          setUploadProgress(100);
+        }
+      );
+    } catch {
+      setUploadingPdf(false);
       setPdfUrl(URL.createObjectURL(file));
     }
   };
@@ -217,7 +275,12 @@ export const AdminAddEditBookPage: React.FC = () => {
                 কভার ছবি <span className="text-rose-500">*</span>
               </label>
               <div className="border-2 border-dashed border-emerald-300 rounded-2xl p-4 text-center hover:bg-emerald-50/30 transition flex flex-col items-center justify-center min-h-[160px] relative">
-                {coverPreview ? (
+                {uploadingCover ? (
+                  <div className="space-y-2">
+                    <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+                    <p className="text-xs font-bold text-primary">কভার ছবি আপলোড হচ্ছে...</p>
+                  </div>
+                ) : coverPreview ? (
                   <div className="flex items-center gap-3">
                     <img
                       src={coverPreview}
@@ -254,6 +317,13 @@ export const AdminAddEditBookPage: React.FC = () => {
                   </>
                 )}
               </div>
+              <input
+                type="text"
+                value={coverPreview}
+                onChange={(e) => setCoverPreview(e.target.value)}
+                placeholder="অথবা কভার ছবির সরাসরি URL দিন"
+                className="w-full px-3 py-1.5 rounded-lg border border-brand-border text-xs focus:ring-1 focus:ring-primary"
+              />
             </div>
 
             {/* PDF Upload Box */}
@@ -262,21 +332,43 @@ export const AdminAddEditBookPage: React.FC = () => {
                 PDF ফাইল <span className="text-rose-500">*</span>
               </label>
               <div className="border-2 border-dashed border-emerald-300 rounded-2xl p-4 text-center hover:bg-emerald-50/30 transition flex flex-col items-center justify-center min-h-[160px] relative">
-                <FileText className="w-8 h-8 text-primary mb-2" />
-                <p className="text-xs font-bold text-brand-text">
-                  {pdfFileName ? pdfFileName : 'পিডিএফ আপলোড করুন'}
-                </p>
-                <p className="text-[11px] text-brand-muted">Max 50MB (Cloudflare R2 স্টোরেজ)</p>
-                <label className="mt-2 px-3 py-1 bg-white border border-brand-border rounded text-xs font-semibold cursor-pointer hover:bg-gray-50">
-                  ফাইল সিলেক্ট করুন
-                  <input
-                    type="file"
-                    accept="application/pdf"
-                    onChange={handlePdfUpload}
-                    className="hidden"
-                  />
-                </label>
+                {uploadingPdf ? (
+                  <div className="space-y-2 w-full max-w-[200px]">
+                    <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+                    <p className="text-xs font-bold text-primary">পিডিএফ আপলোড হচ্ছে ({uploadProgress}%)...</p>
+                    <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
+                      <div
+                        className="bg-primary h-full transition-all duration-300"
+                        style={{ width: `${uploadProgress}%` }}
+                      />
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <FileText className="w-8 h-8 text-primary mb-2" />
+                    <p className="text-xs font-bold text-brand-text">
+                      {pdfFileName ? pdfFileName : 'পিডিএফ আপলোড করুন'}
+                    </p>
+                    <p className="text-[11px] text-brand-muted">Max 50MB (Cloudflare R2 / Firebase স্টোরেজ)</p>
+                    <label className="mt-2 px-3 py-1 bg-white border border-brand-border rounded text-xs font-semibold cursor-pointer hover:bg-gray-50">
+                      ফাইল সিলেক্ট করুন
+                      <input
+                        type="file"
+                        accept="application/pdf"
+                        onChange={handlePdfUpload}
+                        className="hidden"
+                      />
+                    </label>
+                  </>
+                )}
               </div>
+              <input
+                type="text"
+                value={pdfUrl}
+                onChange={(e) => setPdfUrl(e.target.value)}
+                placeholder="অথবা সরাসরি PDF / Cloudflare R2 লিংক দিন"
+                className="w-full px-3 py-1.5 rounded-lg border border-brand-border text-xs focus:ring-1 focus:ring-primary"
+              />
             </div>
           </div>
 

@@ -22,6 +22,17 @@ interface AuthContextType {
   switchDemoRole: (role: 'visitor' | 'user' | 'admin') => void;
 }
 
+export const isUserAdmin = (email?: string | null, role?: string): boolean => {
+  if (role === 'admin') return true;
+  if (!email) return false;
+  const lower = email.trim().toLowerCase();
+  return (
+    lower.includes('admin') ||
+    lower.includes('suyabamin') ||
+    lower === 'suyabamins@gmail.com'
+  );
+};
+
 const DEFAULT_DEMO_USER: UserProfile = {
   uid: 'demo-user-1',
   displayName: 'রাফি হাসান',
@@ -82,38 +93,53 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const userDocRef = doc(db, 'users', fbUser.uid);
           const userDocSnap = await getDoc(userDocRef);
 
-          let isAdmin = false;
+          let isAdmin = isUserAdmin(fbUser.email);
           try {
             const adminDocRef = doc(db, 'admins', fbUser.uid);
             const adminDocSnap = await getDoc(adminDocRef);
-            isAdmin = adminDocSnap.exists() || Boolean(fbUser.email?.includes('admin'));
+            if (adminDocSnap.exists()) {
+              isAdmin = true;
+            } else if (isAdmin) {
+              setDoc(adminDocRef, {
+                uid: fbUser.uid,
+                email: fbUser.email,
+                name: fbUser.displayName || 'অ্যাডমিন',
+                grantedAt: new Date().toISOString(),
+              }).catch(() => {});
+            }
           } catch {
             // If admin collection query fails or not permitted
-            isAdmin = Boolean(fbUser.email?.includes('admin'));
           }
 
           if (userDocSnap.exists()) {
             const data = userDocSnap.data() as UserProfile;
-            const finalIsAdmin = isAdmin || data.role === 'admin';
+            const finalIsAdmin = isAdmin || data.role === 'admin' || isUserAdmin(data.email);
+            const finalRole: UserRole = finalIsAdmin ? 'admin' : (data.role || 'user');
             setUser({
               ...data,
               uid: fbUser.uid,
               displayName: fbUser.displayName || data.displayName || 'ব্যবহারকারী',
               email: fbUser.email || data.email,
-              role: finalIsAdmin ? 'admin' : (data.role || 'user'),
+              role: finalRole,
             });
+            if (finalIsAdmin && data.role !== 'admin') {
+              updateDoc(userDocRef, { role: 'admin' }).catch(() => {});
+            }
           } else {
             // Document might not be created yet if just registered
-            setUser((prev) => ({
-              uid: fbUser.uid,
-              displayName: fbUser.displayName || prev?.displayName || 'ব্যবহারকারী',
-              email: fbUser.email || prev?.email || '',
-              photoURL: fbUser.photoURL || undefined,
-              role: isAdmin ? 'admin' : (prev?.role || 'user'),
-              status: 'active',
-              createdAt: prev?.createdAt || new Date().toISOString(),
-              updatedAt: new Date().toISOString(),
-            }));
+            setUser((prev) => {
+              const finalRole: UserRole = isAdmin ? 'admin' : (prev?.role || 'user');
+              return {
+                uid: fbUser.uid,
+                displayName: fbUser.displayName || prev?.displayName || 'ব্যবহারকারী',
+                email: fbUser.email || prev?.email || '',
+                photoURL: fbUser.photoURL || undefined,
+                role: finalRole,
+                status: 'active',
+                createdAt: prev?.createdAt || new Date().toISOString(),
+                updatedAt: new Date().toISOString(),
+              };
+            });
           }
         } catch (e) {
           console.warn('Error fetching Firestore user profile:', e);
@@ -143,25 +169,37 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const userDocRef = doc(db, 'users', fbUser.uid);
         const userDocSnap = await getDoc(userDocRef);
 
-        let isAdmin = false;
+        let isAdmin = isUserAdmin(fbUser.email);
         try {
           const adminDocRef = doc(db, 'admins', fbUser.uid);
           const adminDocSnap = await getDoc(adminDocRef);
-          isAdmin = adminDocSnap.exists() || Boolean(email.includes('admin'));
+          if (adminDocSnap.exists()) {
+            isAdmin = true;
+          } else if (isAdmin) {
+            setDoc(adminDocRef, {
+              uid: fbUser.uid,
+              email: fbUser.email,
+              name: fbUser.displayName || 'অ্যাডমিন',
+              grantedAt: new Date().toISOString(),
+            }).catch(() => {});
+          }
         } catch {
-          isAdmin = Boolean(email.includes('admin'));
+          // ignore
         }
 
         let profileData: UserProfile;
 
         if (userDocSnap.exists()) {
           const data = userDocSnap.data() as UserProfile;
-          const finalIsAdmin = isAdmin || data.role === 'admin';
+          const finalIsAdmin = isAdmin || data.role === 'admin' || isUserAdmin(data.email);
           profileData = {
             ...data,
             uid: fbUser.uid,
             role: finalIsAdmin ? 'admin' : (data.role || 'user'),
           };
+          if (finalIsAdmin && data.role !== 'admin') {
+            updateDoc(userDocRef, { role: 'admin' }).catch(() => {});
+          }
         } else {
           // If first login and firestore document was missing
           profileData = {
@@ -201,9 +239,13 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(msg);
       }
     } else {
-      const isAdminEmail = email.includes('admin') || requestedRole === 'admin';
+      const isAdminEmail = isUserAdmin(email) || requestedRole === 'admin';
       const loggedUser: UserProfile = isAdminEmail
-        ? DEFAULT_DEMO_ADMIN
+        ? {
+            ...DEFAULT_DEMO_ADMIN,
+            email,
+            displayName: email.split('@')[0],
+          }
         : {
             ...DEFAULT_DEMO_USER,
             email,

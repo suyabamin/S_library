@@ -11,9 +11,11 @@ import {
   BookOpen,
   LayoutGrid,
   RotateCw,
+  ExternalLink,
 } from 'lucide-react';
 import { Book } from '../../types';
 import { toBengaliNumber } from '../../lib/utils';
+import { storageService } from '../../lib/storage';
 import * as pdfjsLib from 'pdfjs-dist';
 
 // Configure pdfjs worker
@@ -42,7 +44,8 @@ export const PdfReader: React.FC<PdfReaderProps> = ({ book }) => {
     setLoading(true);
     setError(null);
 
-    const pdfUrl = book.pdfUrl || 'https://raw.githubusercontent.com/mozilla/pdf.js/ba2edeae/web/compressed.tracemonkey-pldi-09.pdf';
+    const rawPdf = book.pdfUrl || 'https://raw.githubusercontent.com/mozilla/pdf.js/ba2edeae/web/compressed.tracemonkey-pldi-09.pdf';
+    const pdfUrl = storageService.resolveUrl(rawPdf);
 
     const loadingTask = pdfjsLib.getDocument({
       url: pdfUrl,
@@ -199,9 +202,19 @@ export const PdfReader: React.FC<PdfReaderProps> = ({ book }) => {
             <Maximize2 className="w-4 h-4" />
           </button>
 
+          <a
+            href={storageService.resolveUrl(book.pdfUrl) || '#'}
+            target="_blank"
+            rel="noreferrer"
+            title="ব্রাউজারে সরাসরি পিডিএফ খুলুন"
+            className="p-1.5 rounded hover:bg-gray-800 text-gray-300 transition"
+          >
+            <ExternalLink className="w-4 h-4" />
+          </a>
+
           {book.downloadAllowed && (
             <a
-              href={book.pdfUrl || '#'}
+              href={storageService.resolveUrl(book.pdfUrl) || '#'}
               download={`${book.title}.pdf`}
               target="_blank"
               rel="noreferrer"

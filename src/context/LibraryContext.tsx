@@ -20,6 +20,8 @@ import {
 } from '../lib/seedData';
 import { generateId } from '../lib/utils';
 import { useAuth } from './AuthContext';
+import { db, isFirebaseConfigured } from '../lib/firebase';
+import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
 
 interface LibraryContextType {
   books: Book[];
@@ -130,6 +132,38 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     localStorage.setItem('shibir_library_audits', JSON.stringify(auditLogs));
   }, [auditLogs]);
 
+  // Synchronize books collection with Cloud Firestore in real-time
+  useEffect(() => {
+    if (!isFirebaseConfigured) return;
+
+    const booksColRef = collection(db, 'books');
+    const unsubscribe = onSnapshot(
+      booksColRef,
+      (snapshot) => {
+        if (!snapshot.empty) {
+          const loadedBooks: Book[] = [];
+          snapshot.forEach((d) => {
+            loadedBooks.push({ id: d.id, ...(d.data() as any) });
+          });
+          loadedBooks.sort(
+            (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+          );
+          setBooks(loadedBooks);
+        } else {
+          // Initialize cloud collection with seed books
+          INITIAL_BOOKS.forEach((ib) => {
+            setDoc(doc(db, 'books', ib.id), ib).catch(() => {});
+          });
+        }
+      },
+      (err) => {
+        console.warn('Firestore books listener error:', err);
+      }
+    );
+
+    return () => unsubscribe();
+  }, []);
+
   const unreadNotificationCount = notifications.filter((n) => {
     if (n.read) return false;
     if (n.recipientUid === 'all') return true;
@@ -150,6 +184,12 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       createdBy: user?.uid,
     };
     setBooks((prev) => [newBook, ...prev]);
+
+    if (isFirebaseConfigured) {
+      setDoc(doc(db, 'books', newBook.id), newBook).catch((err) => {
+        console.warn('Error persisting book to Firestore:', err);
+      });
+    }
 
     // Add audit log
     if (user) {
@@ -174,10 +214,23 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     setBooks((prev) =>
       prev.map((b) => (b.id === id ? { ...b, ...updates, updatedAt: new Date().toISOString() } : b))
     );
+    if (isFirebaseConfigured) {
+      updateDoc(doc(db, 'books', id), {
+        ...updates,
+        updatedAt: new Date().toISOString(),
+      }).catch((err) => {
+        console.warn('Error updating book in Firestore:', err);
+      });
+    }
   };
 
   const deleteBook = (id: string) => {
     setBooks((prev) => prev.filter((b) => b.id !== id));
+    if (isFirebaseConfigured) {
+      deleteDoc(doc(db, 'books', id)).catch((err) => {
+        console.warn('Error deleting book in Firestore:', err);
+      });
+    }
   };
 
   const submitBorrowRequest = async (params: {

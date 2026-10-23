@@ -18,6 +18,7 @@ import { useAuth } from '../context/AuthContext';
 import { BorrowRequestModal } from '../components/borrow/BorrowRequestModal';
 import { BookCard } from '../components/book/BookCard';
 import { toBengaliNumber } from '../lib/utils';
+import { storageService } from '../lib/storage';
 
 export const BookDetailsPage: React.FC = () => {
   const { bookId } = useParams<{ bookId: string }>();
@@ -172,7 +173,7 @@ export const BookDetailsPage: React.FC = () => {
 
               {book.downloadAllowed ? (
                 <a
-                  href={book.pdfUrl || '#'}
+                  href={storageService.resolveUrl(book.pdfUrl) || '#'}
                   download={`${book.title}.pdf`}
                   target="_blank"
                   rel="noreferrer"
