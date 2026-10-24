@@ -12,6 +12,38 @@ import {
 } from 'lucide-react';
 import { storageService } from '../../lib/storage';
 
+const compressImage = (file: File, maxWidth = 600, quality = 0.75): Promise<string> => {
+  return new Promise((resolve) => {
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const canvas = document.createElement('canvas');
+        let width = img.width;
+        let height = img.height;
+
+        if (width > maxWidth) {
+          height = Math.round((height * maxWidth) / width);
+          width = maxWidth;
+        }
+
+        canvas.width = width;
+        canvas.height = height;
+        const ctx = canvas.getContext('2d');
+        if (ctx) {
+          ctx.drawImage(img, 0, 0, width, height);
+          resolve(canvas.toDataURL('image/jpeg', quality));
+        } else {
+          resolve((e.target?.result as string) || '');
+        }
+      };
+      img.onerror = () => resolve((e.target?.result as string) || '');
+      img.src = (e.target?.result as string) || '';
+    };
+    reader.readAsDataURL(file);
+  });
+};
+
 export const AdminAddEditBookPage: React.FC = () => {
   const { categories, addBook } = useLibrary();
   const navigate = useNavigate();
@@ -86,22 +118,21 @@ export const AdminAddEditBookPage: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    const localUrl = URL.createObjectURL(file);
-    setCoverPreview(localUrl);
-    setUploadingCover(true);
+    try {
+      const compressedDataUrl = await compressImage(file);
+      setCoverPreview(compressedDataUrl);
+    } catch {
+      setCoverPreview(URL.createObjectURL(file));
+    }
 
+    setUploadingCover(true);
     try {
       const permanentUrl = await uploadFileToR2(file, 'covers', () => {});
-      setCoverPreview(permanentUrl);
+      if (permanentUrl) {
+        setCoverPreview(permanentUrl);
+      }
     } catch (err) {
-      console.warn('Cover upload to server failed, converting to permanent base64 data:', err);
-      const reader = new FileReader();
-      reader.onload = () => {
-        if (typeof reader.result === 'string') {
-          setCoverPreview(reader.result);
-        }
-      };
-      reader.readAsDataURL(file);
+      console.warn('Cover upload to server failed, keeping compressed image:', err);
     } finally {
       setUploadingCover(false);
     }
@@ -113,11 +144,11 @@ export const AdminAddEditBookPage: React.FC = () => {
 
     setPdfFileName(file.name);
     setUploadingPdf(true);
-    setUploadProgress(5);
+    setUploadProgress(10);
 
     try {
       const permanentUrl = await uploadFileToR2(file, 'pdfs', (pct) => {
-        setUploadProgress(Math.max(5, pct));
+        setUploadProgress(Math.max(10, pct));
       });
       setPdfUrl(permanentUrl);
       setUploadProgress(100);
@@ -126,6 +157,7 @@ export const AdminAddEditBookPage: React.FC = () => {
       const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
       const fallbackUrl = `https://pub-315d764fbe404bb692491d79b0e4a660.r2.dev/pdfs/${Date.now()}-${cleanName}`;
       setPdfUrl(fallbackUrl);
+      setUploadProgress(100);
     } finally {
       setUploadingPdf(false);
     }
@@ -135,34 +167,45 @@ export const AdminAddEditBookPage: React.FC = () => {
     e.preventDefault();
     if (!title.trim()) return;
 
+    if (uploadingPdf || uploadingCover) {
+      alert('ফাইল আপলোড এখনও সম্পন্ন হয়নি, অনুগ্রহ করে কয়েক সেকেন্ড অপেক্ষা করুন...');
+      return;
+    }
+
     setSubmitting(true);
-    const cat = categories.find((c) => c.id === categoryId);
+    try {
+      const cat = categories.find((c) => c.id === categoryId);
 
-    addBook({
-      title: title.trim(),
-      author: author.trim() || undefined,
-      categoryId,
-      categoryName: cat?.nameBn || 'সিলেবাস',
-      description: description.trim(),
-      publicationInfo: publicationInfo.trim() || undefined,
-      language,
-      coverImage: coverPreview,
-      pdfUrl: pdfUrl,
-      downloadAllowed,
-      featured,
-      status: 'published',
-      isPhysicalAvailable: totalCopies > 0,
-      totalPhysicalCopies: totalCopies,
-      availablePhysicalCopies: totalCopies,
-      fileSizeMb: 4.5,
-      pageCount: 320,
-    });
+      addBook({
+        title: title.trim(),
+        author: author.trim() || undefined,
+        categoryId,
+        categoryName: cat?.nameBn || 'সিলেবাস',
+        description: description.trim(),
+        publicationInfo: publicationInfo.trim() || undefined,
+        language,
+        coverImage: coverPreview,
+        pdfUrl: pdfUrl,
+        downloadAllowed,
+        featured,
+        status: 'published',
+        isPhysicalAvailable: totalCopies > 0,
+        totalPhysicalCopies: totalCopies,
+        availablePhysicalCopies: totalCopies,
+        fileSizeMb: 4.5,
+        pageCount: 320,
+      });
 
-    setSubmitting(false);
-    setSuccessMessage(true);
-    setTimeout(() => {
-      navigate('/admin/books');
-    }, 1500);
+      setSuccessMessage(true);
+      setTimeout(() => {
+        navigate('/admin/books');
+      }, 800);
+    } catch (err) {
+      console.error('Save book error:', err);
+      alert('বই সংরক্ষণ করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+    } finally {
+      setSubmitting(false);
+    }
   };
 
   return (
@@ -369,7 +412,7 @@ export const AdminAddEditBookPage: React.FC = () => {
                     <p className="text-xs font-bold text-brand-text">
                       {pdfFileName ? pdfFileName : 'পিডিএফ আপলোড করুন'}
                     </p>
-                    <p className="text-[11px] text-brand-muted">Max 50MB (Cloudflare R2 / Firebase স্টোরেজ)</p>
+                    <p className="text-[11px] text-brand-muted">Max 50MB</p>
                     <label className="mt-2 px-3 py-1 bg-white border border-brand-border rounded text-xs font-semibold cursor-pointer hover:bg-gray-50">
                       ফাইল সিলেক্ট করুন
                       <input

@@ -35,7 +35,7 @@ interface LibraryContextType {
   unreadNotificationCount: number;
 
   // Actions
-  addBook: (book: Omit<Book, 'id' | 'createdAt' | 'updatedAt'>) => void;
+  addBook: (book: Omit<Book, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
   updateBook: (id: string, book: Partial<Book>) => void;
   deleteBook: (id: string) => void;
   submitBorrowRequest: (params: {
@@ -105,7 +105,11 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
 
   // Persist state updates
   useEffect(() => {
-    localStorage.setItem('shibir_library_books', JSON.stringify(books));
+    try {
+      localStorage.setItem('shibir_library_books', JSON.stringify(books));
+    } catch (e) {
+      console.warn('LocalStorage save warning:', e);
+    }
   }, [books]);
 
   useEffect(() => {
@@ -145,10 +149,18 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
           snapshot.forEach((d) => {
             loadedBooks.push({ id: d.id, ...(d.data() as any) });
           });
-          loadedBooks.sort(
-            (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
-          );
-          setBooks(loadedBooks);
+          setBooks((prevBooks) => {
+            const combinedMap = new Map<string, Book>();
+            // Keep local books that might have just been added
+            prevBooks.forEach((b) => combinedMap.set(b.id, b));
+            // Merge in server books
+            loadedBooks.forEach((b) => combinedMap.set(b.id, b));
+            const allBooks = Array.from(combinedMap.values());
+            allBooks.sort(
+              (a, b) => new Date(b.createdAt || 0).getTime() - new Date(a.createdAt || 0).getTime()
+            );
+            return allBooks;
+          });
         } else {
           // Initialize cloud collection with seed books
           INITIAL_BOOKS.forEach((ib) => {
@@ -175,7 +187,7 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const getBookById = (id: string) => books.find((b) => b.id === id);
   const getCategoryBySlug = (slug: string) => categories.find((c) => c.slug === slug || c.id === slug);
 
-  const addBook = (bookData: Omit<Book, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addBook = async (bookData: Omit<Book, 'id' | 'createdAt' | 'updatedAt'>) => {
     const newBook: Book = {
       ...bookData,
       id: generateId('book'),
@@ -183,12 +195,17 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       updatedAt: new Date().toISOString(),
       createdBy: user?.uid,
     };
-    setBooks((prev) => [newBook, ...prev]);
+    setBooks((prev) => [newBook, ...prev.filter((b) => b.id !== newBook.id)]);
 
     if (isFirebaseConfigured) {
-      setDoc(doc(db, 'books', newBook.id), newBook).catch((err) => {
+      try {
+        const timeoutPromise = new Promise((_, reject) =>
+          setTimeout(() => reject(new Error('Firestore write timeout')), 3000)
+        );
+        await Promise.race([setDoc(doc(db, 'books', newBook.id), newBook), timeoutPromise]);
+      } catch (err) {
         console.warn('Error persisting book to Firestore:', err);
-      });
+      }
     }
 
     // Add audit log
