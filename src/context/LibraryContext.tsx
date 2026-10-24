@@ -35,7 +35,7 @@ interface LibraryContextType {
   unreadNotificationCount: number;
 
   // Actions
-  addBook: (book: Omit<Book, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>;
+  addBook: (book: Omit<Book, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Book>;
   updateBook: (id: string, book: Partial<Book>) => void;
   deleteBook: (id: string) => void;
   submitBorrowRequest: (params: {
@@ -187,7 +187,7 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const getBookById = (id: string) => books.find((b) => b.id === id);
   const getCategoryBySlug = (slug: string) => categories.find((c) => c.slug === slug || c.id === slug);
 
-  const addBook = async (bookData: Omit<Book, 'id' | 'createdAt' | 'updatedAt'>) => {
+  const addBook = async (bookData: Omit<Book, 'id' | 'createdAt' | 'updatedAt'>): Promise<Book> => {
     const newBook: Book = {
       ...bookData,
       id: generateId('book'),
@@ -195,18 +195,14 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
       updatedAt: new Date().toISOString(),
       createdBy: user?.uid,
     };
-    setBooks((prev) => [newBook, ...prev.filter((b) => b.id !== newBook.id)]);
 
     if (isFirebaseConfigured) {
-      try {
-        const timeoutPromise = new Promise((_, reject) =>
-          setTimeout(() => reject(new Error('Firestore write timeout')), 3000)
-        );
-        await Promise.race([setDoc(doc(db, 'books', newBook.id), newBook), timeoutPromise]);
-      } catch (err) {
-        console.warn('Error persisting book to Firestore:', err);
-      }
+      // Direct await ensures the book actually persists to Firestore before confirming success.
+      // Throws on permission denied or network failure so the caller can alert the user honestly.
+      await setDoc(doc(db, 'books', newBook.id), newBook);
     }
+
+    setBooks((prev) => [newBook, ...prev.filter((b) => b.id !== newBook.id)]);
 
     // Add audit log
     if (user) {
@@ -225,6 +221,8 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
         ...prev,
       ]);
     }
+
+    return newBook;
   };
 
   const updateBook = (id: string, updates: Partial<Book>) => {

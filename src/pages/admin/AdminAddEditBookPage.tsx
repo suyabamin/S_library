@@ -12,38 +12,6 @@ import {
 } from 'lucide-react';
 import { storageService } from '../../lib/storage';
 
-const compressImage = (file: File, maxWidth = 600, quality = 0.75): Promise<string> => {
-  return new Promise((resolve) => {
-    const reader = new FileReader();
-    reader.onload = (e) => {
-      const img = new Image();
-      img.onload = () => {
-        const canvas = document.createElement('canvas');
-        let width = img.width;
-        let height = img.height;
-
-        if (width > maxWidth) {
-          height = Math.round((height * maxWidth) / width);
-          width = maxWidth;
-        }
-
-        canvas.width = width;
-        canvas.height = height;
-        const ctx = canvas.getContext('2d');
-        if (ctx) {
-          ctx.drawImage(img, 0, 0, width, height);
-          resolve(canvas.toDataURL('image/jpeg', quality));
-        } else {
-          resolve((e.target?.result as string) || '');
-        }
-      };
-      img.onerror = () => resolve((e.target?.result as string) || '');
-      img.src = (e.target?.result as string) || '';
-    };
-    reader.readAsDataURL(file);
-  });
-};
-
 export const AdminAddEditBookPage: React.FC = () => {
   const { categories, addBook } = useLibrary();
   const navigate = useNavigate();
@@ -118,21 +86,29 @@ export const AdminAddEditBookPage: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
-    try {
-      const compressedDataUrl = await compressImage(file);
-      setCoverPreview(compressedDataUrl);
-    } catch {
-      setCoverPreview(URL.createObjectURL(file));
+    if (!file.type.startsWith('image/')) {
+      alert('অনুগ্রহ করে শুধুমাত্র ছবি ফাইল (JPG, PNG, WebP) আপলোড করুন।');
+      return;
     }
 
+    // Temporary preview for instant UX
+    const blobUrl = URL.createObjectURL(file);
+    setCoverPreview(blobUrl);
     setUploadingCover(true);
+
     try {
       const permanentUrl = await uploadFileToR2(file, 'covers', () => {});
       if (permanentUrl) {
+        URL.revokeObjectURL(blobUrl);
         setCoverPreview(permanentUrl);
+      } else {
+        throw new Error('সার্ভার থেকে সঠিক লিংক পাওয়া যায়নি');
       }
-    } catch (err) {
-      console.warn('Cover upload to server failed, keeping compressed image:', err);
+    } catch (err: any) {
+      console.error('Cover upload to R2 failed:', err);
+      URL.revokeObjectURL(blobUrl);
+      setCoverPreview('');
+      alert(`কভার ছবি আপলোড ব্যর্থ হয়েছে: ${err.message || 'নেটওয়ার্ক বা সার্ভার সমস্যা'}। দয়া করে পুনরায় চেষ্টা করুন।`);
     } finally {
       setUploadingCover(false);
     }
@@ -142,22 +118,31 @@ export const AdminAddEditBookPage: React.FC = () => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    if (file.type !== 'application/pdf' && !file.name.toLowerCase().endsWith('.pdf')) {
+      alert('অনুগ্রহ করে শুধুমাত্র PDF ফাইল আপলোড করুন।');
+      return;
+    }
+
     setPdfFileName(file.name);
     setUploadingPdf(true);
-    setUploadProgress(10);
+    setUploadProgress(5);
+    setPdfUrl(''); // Invalidate previous URL until upload completes
 
     try {
       const permanentUrl = await uploadFileToR2(file, 'pdfs', (pct) => {
-        setUploadProgress(Math.max(10, pct));
+        setUploadProgress(Math.max(5, pct));
       });
+      if (!permanentUrl || !permanentUrl.startsWith('http')) {
+        throw new Error('সার্ভার থেকে স্থায়ী পিডিএফ লিংক পাওয়া যায়নি');
+      }
       setPdfUrl(permanentUrl);
       setUploadProgress(100);
-    } catch (err) {
-      console.warn('PDF upload error, using direct R2 public URL format:', err);
-      const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const fallbackUrl = `https://pub-315d764fbe404bb692491d79b0e4a660.r2.dev/pdfs/${Date.now()}-${cleanName}`;
-      setPdfUrl(fallbackUrl);
-      setUploadProgress(100);
+    } catch (err: any) {
+      console.error('PDF upload error:', err);
+      setPdfUrl('');
+      setPdfFileName('');
+      setUploadProgress(0);
+      alert(`পিডিএফ ফাইল আপলোড ব্যর্থ হয়েছে: ${err.message || 'সার্ভার সমস্যা'}। ফাইলটি সঠিকভাবে আপলোড হয়নি। অনুগ্রহ করে পুনরায় চেষ্টা করুন।`);
     } finally {
       setUploadingPdf(false);
     }
@@ -165,10 +150,23 @@ export const AdminAddEditBookPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!title.trim()) return;
+    if (!title.trim()) {
+      alert('বইয়ের নাম প্রদান করুন');
+      return;
+    }
 
     if (uploadingPdf || uploadingCover) {
-      alert('ফাইল আপলোড এখনও সম্পন্ন হয়নি, অনুগ্রহ করে কয়েক সেকেন্ড অপেক্ষা করুন...');
+      alert('ফাইল আপলোড এখনও সম্পন্ন হয়নি, অনুগ্রহ করে অপেক্ষা করুন...');
+      return;
+    }
+
+    if (!pdfUrl || pdfUrl.startsWith('blob:') || pdfUrl.startsWith('data:')) {
+      alert('অনুগ্রহ করে একটি বৈধ পিডিএফ ফাইল আপলোড সম্পন্ন হওয়া নিশ্চিত করুন অথবা সরাসরি ক্লাউড লিংক প্রদান করুন।');
+      return;
+    }
+
+    if (coverPreview && coverPreview.startsWith('blob:')) {
+      alert('কভার ছবি আপলোড এখনও চলমান বা অসম্পূর্ণ। অনুগ্রহ করে আপলোড শেষ হওয়া পর্যন্ত অপেক্ষা করুন।');
       return;
     }
 
@@ -176,7 +174,7 @@ export const AdminAddEditBookPage: React.FC = () => {
     try {
       const cat = categories.find((c) => c.id === categoryId);
 
-      addBook({
+      await addBook({
         title: title.trim(),
         author: author.trim() || undefined,
         categoryId,
@@ -184,7 +182,7 @@ export const AdminAddEditBookPage: React.FC = () => {
         description: description.trim(),
         publicationInfo: publicationInfo.trim() || undefined,
         language,
-        coverImage: coverPreview,
+        coverImage: coverPreview || undefined,
         pdfUrl: pdfUrl,
         downloadAllowed,
         featured,
@@ -199,10 +197,10 @@ export const AdminAddEditBookPage: React.FC = () => {
       setSuccessMessage(true);
       setTimeout(() => {
         navigate('/admin/books');
-      }, 800);
-    } catch (err) {
+      }, 1000);
+    } catch (err: any) {
       console.error('Save book error:', err);
-      alert('বই সংরক্ষণ করতে সমস্যা হয়েছে। আবার চেষ্টা করুন।');
+      alert(`বই সংরক্ষণ করতে ব্যর্থ হয়েছে: ${err.message || 'ডাটাবেজ সমস্যা'}। পুনরায় চেষ্টা করুন।`);
     } finally {
       setSubmitting(false);
     }
