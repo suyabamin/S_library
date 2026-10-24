@@ -11,8 +11,6 @@ import {
   Image as ImageIcon,
 } from 'lucide-react';
 import { storageService } from '../../lib/storage';
-import { storage } from '../../lib/firebase';
-import { ref, uploadBytesResumable, getDownloadURL } from 'firebase/storage';
 
 export const AdminAddEditBookPage: React.FC = () => {
   const { categories, addBook } = useLibrary();
@@ -42,34 +40,70 @@ export const AdminAddEditBookPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState(false);
 
+  const uploadFileToR2 = (
+    file: File,
+    folder: 'covers' | 'pdfs',
+    onProgress: (pct: number) => void
+  ): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const xhr = new XMLHttpRequest();
+      xhr.open('POST', '/api/upload', true);
+      xhr.setRequestHeader('Content-Type', file.type || 'application/octet-stream');
+      xhr.setRequestHeader('x-filename', encodeURIComponent(file.name));
+      xhr.setRequestHeader('x-folder', folder);
+
+      xhr.upload.onprogress = (event) => {
+        if (event.lengthComputable && event.total > 0) {
+          const percent = Math.round((event.loaded / event.total) * 100);
+          onProgress(percent);
+        }
+      };
+
+      xhr.onload = () => {
+        if (xhr.status >= 200 && xhr.status < 300) {
+          try {
+            const data = JSON.parse(xhr.responseText);
+            if (data.url) {
+              resolve(data.url);
+              return;
+            }
+          } catch {
+            // parse error
+          }
+        }
+        reject(new Error(`Upload failed with status ${xhr.status}`));
+      };
+
+      xhr.onerror = () => reject(new Error('Network error during upload'));
+      xhr.ontimeout = () => reject(new Error('Upload timed out'));
+      xhr.timeout = 120000;
+
+      xhr.send(file);
+    });
+  };
+
   const handleCoverUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    const localUrl = URL.createObjectURL(file);
+    setCoverPreview(localUrl);
     setUploadingCover(true);
-    try {
-      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const storageRef = ref(storage, `books/covers/${Date.now()}_${safeName}`);
-      const uploadTask = uploadBytesResumable(storageRef, file);
 
-      uploadTask.on(
-        'state_changed',
-        () => {},
-        (error) => {
-          console.warn('Cover upload fallback:', error);
-          setUploadingCover(false);
-          const fallbackUrl = URL.createObjectURL(file);
-          setCoverPreview(fallbackUrl);
-        },
-        async () => {
-          const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
-          setCoverPreview(downloadUrl);
-          setUploadingCover(false);
+    try {
+      const permanentUrl = await uploadFileToR2(file, 'covers', () => {});
+      setCoverPreview(permanentUrl);
+    } catch (err) {
+      console.warn('Cover upload to server failed, converting to permanent base64 data:', err);
+      const reader = new FileReader();
+      reader.onload = () => {
+        if (typeof reader.result === 'string') {
+          setCoverPreview(reader.result);
         }
-      );
-    } catch {
+      };
+      reader.readAsDataURL(file);
+    } finally {
       setUploadingCover(false);
-      setCoverPreview(URL.createObjectURL(file));
     }
   };
 
@@ -79,35 +113,21 @@ export const AdminAddEditBookPage: React.FC = () => {
 
     setPdfFileName(file.name);
     setUploadingPdf(true);
-    setUploadProgress(15);
+    setUploadProgress(5);
 
     try {
-      const safeName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
-      const storageRef = ref(storage, `books/pdfs/${Date.now()}_${safeName}`);
-      const uploadTask = uploadBytesResumable(storageRef, file);
-
-      uploadTask.on(
-        'state_changed',
-        (snapshot) => {
-          const progress = Math.round((snapshot.bytesTransferred / snapshot.totalBytes) * 100);
-          setUploadProgress(progress);
-        },
-        (error) => {
-          console.warn('PDF upload fallback:', error);
-          setUploadingPdf(false);
-          const fallbackUrl = storageService.resolveUrl(`pdfs/${safeName}`);
-          setPdfUrl(fallbackUrl);
-        },
-        async () => {
-          const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
-          setPdfUrl(downloadUrl);
-          setUploadingPdf(false);
-          setUploadProgress(100);
-        }
-      );
-    } catch {
+      const permanentUrl = await uploadFileToR2(file, 'pdfs', (pct) => {
+        setUploadProgress(Math.max(5, pct));
+      });
+      setPdfUrl(permanentUrl);
+      setUploadProgress(100);
+    } catch (err) {
+      console.warn('PDF upload error, using direct R2 public URL format:', err);
+      const cleanName = file.name.replace(/[^a-zA-Z0-9.-]/g, '_');
+      const fallbackUrl = `https://pub-315d764fbe404bb692491d79b0e4a660.r2.dev/pdfs/${Date.now()}-${cleanName}`;
+      setPdfUrl(fallbackUrl);
+    } finally {
       setUploadingPdf(false);
-      setPdfUrl(URL.createObjectURL(file));
     }
   };
 

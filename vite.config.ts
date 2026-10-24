@@ -1,10 +1,75 @@
 import { defineConfig } from 'vite';
 import react from '@vitejs/plugin-react';
 import path from 'path';
+import { S3Client, PutObjectCommand } from '@aws-sdk/client-s3';
 
-// https://vitejs.dev/config/
+const r2UploadPlugin = () => ({
+  name: 'r2-upload-dev-middleware',
+  configureServer(server: any) {
+    server.middlewares.use('/api/upload', async (req: any, res: any) => {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+      res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, x-filename, x-folder');
+
+      if (req.method === 'OPTIONS') {
+        res.statusCode = 200;
+        res.end();
+        return;
+      }
+
+      if (req.method !== 'POST') {
+        res.statusCode = 405;
+        res.end(JSON.stringify({ error: 'Method not allowed' }));
+        return;
+      }
+
+      try {
+        const rawFilename = req.headers['x-filename'] || 'file';
+        const filename = decodeURIComponent(rawFilename).replace(/[^a-zA-Z0-9.-]/g, '_');
+        const folder = req.headers['x-folder'] || 'uploads';
+        const contentType = req.headers['content-type'] || 'application/octet-stream';
+        const objectKey = `${folder}/${Date.now()}-${filename}`;
+
+        const chunks: Uint8Array[] = [];
+        for await (const chunk of req) {
+          chunks.push(chunk);
+        }
+        const buffer = Buffer.concat(chunks);
+
+        const s3 = new S3Client({
+          region: 'auto',
+          endpoint: 'https://fb27ae506c5ae6ba0cad623d2b5d1536.r2.cloudflarestorage.com',
+          credentials: {
+            accessKeyId: '4fff2c35afbd0f16afde7e8f77399ba6',
+            secretAccessKey: '60986bd16f9e934be9e484be619f6cc1bab3beaf97ab2b6676822f1941e53ddb',
+          },
+        });
+
+        await s3.send(
+          new PutObjectCommand({
+            Bucket: 'shibir-library-bucket',
+            Key: objectKey,
+            Body: buffer,
+            ContentType: contentType,
+          })
+        );
+
+        const publicUrl = `https://pub-315d764fbe404bb692491d79b0e4a660.r2.dev/${objectKey}`;
+
+        res.setHeader('Content-Type', 'application/json');
+        res.statusCode = 200;
+        res.end(JSON.stringify({ success: true, url: publicUrl, objectKey }));
+      } catch (err: any) {
+        res.statusCode = 500;
+        res.setHeader('Content-Type', 'application/json');
+        res.end(JSON.stringify({ error: err.message || 'Upload failed' }));
+      }
+    });
+  },
+});
+
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), r2UploadPlugin()],
   resolve: {
     alias: {
       '@': path.resolve(__dirname, './src'),
