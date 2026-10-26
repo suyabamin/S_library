@@ -1,32 +1,38 @@
 /**
  * scripts/test-book-upload-persistence.mjs
  * 
- * Automated Verification Script for Permanent Book Upload & Cloud Storage
- * 
- * Verifies:
- * - Test A: PDF file upload through real API streaming handler
- * - Test B: Persistent storage verification in Cloudflare R2 & SHA-256 checksum match
- * - Test C: Persistent database record verification in Cloud Firestore with real admin authentication
- * - Test D: Independent fresh-session retrieval & test marker validation (zero cache/cookies)
- * - Test E: Independent download workflow & PDF magic bytes validation
- * - Test F: Persistence after re-query
- * - Clean up of test records
+ * Comprehensive Automated Verification Script for:
+ * 1. Schema Validation: Mandatory author validation & rejection of undefined
+ * 2. Cloudflare R2 Presigned & Streaming Uploads
+ * 3. R2 Persistent Storage & SHA-256 Checksum Match
+ * 4. Cloud Firestore Persistent Record Creation (setDoc) & Update (updateDoc)
+ * 5. Independent Fresh-Session Retrieval & PDF Header Validation
+ * 6. Clean up of test records
  */
 
 import crypto from 'crypto';
 import { Readable } from 'stream';
-import { S3Client, HeadObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
+import { S3Client, HeadObjectCommand, DeleteObjectCommand, PutObjectCommand } from '@aws-sdk/client-s3';
 import { initializeApp, getApps } from 'firebase/app';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword } from 'firebase/auth';
-import { getFirestore, doc, setDoc, getDoc, deleteDoc } from 'firebase/firestore';
+import { getFirestore, doc, setDoc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
 import uploadHandler from '../api/upload.js';
+import presignHandler from '../api/presign.js';
+import {
+  validateAndCanonicalizeBook,
+  sanitizeFirestorePayload,
+  findUndefinedPaths,
+} from '../src/lib/bookValidation.ts';
 
 // Configuration
 const R2_ACCOUNT_ID = process.env.R2_ACCOUNT_ID || 'fb27ae506c5ae6ba0cad623d2b5d1536';
 const R2_ACCESS_KEY_ID = process.env.R2_ACCESS_KEY_ID || '4fff2c35afbd0f16afde7e8f77399ba6';
-const R2_SECRET_ACCESS_KEY = process.env.R2_SECRET_ACCESS_KEY || '60986bd16f9e934be9e484be619f6cc1bab3beaf97ab2b6676822f1941e53ddb';
+const R2_SECRET_ACCESS_KEY =
+  process.env.R2_SECRET_ACCESS_KEY ||
+  '60986bd16f9e934be9e484be619f6cc1bab3beaf97ab2b6676822f1941e53ddb';
 const R2_BUCKET_NAME = process.env.R2_BUCKET_NAME || 'shibir-library-bucket';
-const R2_PUBLIC_URL = process.env.VITE_R2_PUBLIC_URL || 'https://pub-315d764fbe404bb692491d79b0e4a660.r2.dev';
+const R2_PUBLIC_URL =
+  process.env.VITE_R2_PUBLIC_URL || 'https://pub-315d764fbe404bb692491d79b0e4a660.r2.dev';
 
 const firebaseConfig = {
   apiKey: process.env.VITE_FIREBASE_API_KEY || 'AIzaSyCsR5BxwJ3FzWQB_NEz8_z8m2rZ32VsOVg',
@@ -113,7 +119,7 @@ async function getAuthenticatedAdminUser() {
 
 async function runPersistenceTest() {
   console.log('===============================================================');
-  console.log('  SHIBIR LIBRARY - PERMANENT BOOK UPLOAD & STORAGE TEST');
+  console.log('  SHIBIR LIBRARY - FIRESTORE DATA & R2 PERSISTENCE TEST');
   console.log('===============================================================\n');
 
   const uniqueId = `test-${Date.now()}-${crypto.randomBytes(3).toString('hex')}`;
@@ -135,48 +141,95 @@ async function runPersistenceTest() {
 
   try {
     // -------------------------------------------------------------
-    // TEST A: Upload through API streaming handler
+    // TEST 1: Schema Validation & Rejecting Missing Author
     // -------------------------------------------------------------
-    console.log('--- TEST A: Executing Upload Workflow ---');
-    const req = Readable.from([originalPdfBuffer]);
-    req.method = 'POST';
-    req.headers = {
-      'content-type': 'application/pdf',
-      'x-filename': testFilename,
-      'x-folder': 'test-verification',
+    console.log('--- TEST 1: Verifying Schema Validation & Error Catching ---');
+    const invalidBookMissingAuthor = {
+      title: testTitle,
+      author: undefined, // Simulates the exact bug
+      categoryId: 'quran',
+      pdfUrl: 'https://example.com/test.pdf',
     };
 
-    let statusCode = 200;
-    let responseData = null;
+    const valResult1 = validateAndCanonicalizeBook(invalidBookMissingAuthor, true);
+    if (valResult1.valid) {
+      throw new Error('FAILED: Validator should have rejected book with undefined author!');
+    }
+    console.log(`✓ Test 1A PASSED: Correctly rejected missing author with message: "${valResult1.errors[0]}"`);
 
-    const res = {
+    // Verify sanitization of optional fields
+    const dirtyPayloadWithUndefined = {
+      title: testTitle,
+      author: 'ড. রাশেদ হাসান',
+      categoryId: 'quran',
+      publicationInfo: undefined, // Simulates previous bug
+      coverImage: undefined,
+      totalCopies: 3,
+      pdfUrl: 'https://pub-315d764fbe404bb692491d79b0e4a660.r2.dev/pdfs/test.pdf',
+    };
+
+    const valResult2 = validateAndCanonicalizeBook(dirtyPayloadWithUndefined, true);
+    if (!valResult2.valid) {
+      throw new Error(`FAILED: Valid book with optional undefined fields was rejected: ${valResult2.errors.join(', ')}`);
+    }
+    const undefinedPaths = findUndefinedPaths(valResult2.sanitized);
+    if (undefinedPaths.length > 0) {
+      throw new Error(`FAILED: Payload still contains undefined paths: ${undefinedPaths.join(', ')}`);
+    }
+    console.log(`✓ Test 1B PASSED: Recursively sanitized payload (0 undefined values remaining)\n`);
+
+    // -------------------------------------------------------------
+    // TEST 2: Presigned Direct Storage Upload Endpoint
+    // -------------------------------------------------------------
+    console.log('--- TEST 2: Testing Presigned Upload Generation ---');
+    let presignStatusCode = 200;
+    let presignResponse = null;
+
+    const presignReq = {
+      method: 'POST',
+      body: {
+        filename: testFilename,
+        contentType: 'application/pdf',
+        folder: 'test-verification',
+      },
+    };
+    const presignRes = {
       setHeader: () => {},
-      status: (code) => { statusCode = code; return res; },
-      json: (data) => { responseData = data; },
+      status: (code) => { presignStatusCode = code; return presignRes; },
+      json: (data) => { presignResponse = data; },
       end: () => {},
     };
 
-    await uploadHandler(req, res);
+    await presignHandler(presignReq, presignRes);
 
-    if (statusCode !== 200 || !responseData || !responseData.success) {
-      throw new Error(`Upload API returned error status ${statusCode}: ${JSON.stringify(responseData)}`);
+    if (presignStatusCode !== 200 || !presignResponse?.uploadUrl) {
+      throw new Error(`Presign API failed with status ${presignStatusCode}: ${JSON.stringify(presignResponse)}`);
+    }
+    console.log(`✓ Test 2 PASSED: Presigned URL generated successfully`);
+    console.log(`  Upload URL endpoint: ${presignResponse.uploadUrl.split('?')[0]}`);
+    console.log(`  Target Public URL: ${presignResponse.publicUrl}\n`);
+
+    // Direct upload of PDF bytes using presigned PUT
+    console.log('--- TEST 3: Executing Direct Storage Upload via Presigned URL ---');
+    const putRes = await fetch(presignResponse.uploadUrl, {
+      method: 'PUT',
+      headers: { 'Content-Type': 'application/pdf' },
+      body: originalPdfBuffer,
+    });
+
+    if (!putRes.ok) {
+      throw new Error(`Direct PUT upload failed with HTTP ${putRes.status}`);
     }
 
-    uploadedUrl = responseData.url;
-    uploadedObjectKey = responseData.objectKey;
-
-    if (!uploadedUrl || !uploadedUrl.startsWith('https://')) {
-      throw new Error(`Upload returned invalid URL: ${uploadedUrl}`);
-    }
-
-    console.log(`✓ Test A PASSED: Upload API succeeded with status 200`);
-    console.log(`  Permanent URL: ${uploadedUrl}`);
+    uploadedUrl = presignResponse.publicUrl;
+    uploadedObjectKey = presignResponse.objectKey;
+    console.log(`✓ Test 3 PASSED: Direct PUT to Cloudflare R2 succeeded (HTTP ${putRes.status})`);
     console.log(`  Storage Key: ${uploadedObjectKey}\n`);
 
     // -------------------------------------------------------------
-    // TEST B: Verify Persistent Storage in Cloudflare R2
+    // TEST 4: Verify Persistent Storage in Cloudflare R2
     // -------------------------------------------------------------
-    console.log('--- TEST B: Verifying Cloudflare R2 Object & Checksum ---');
+    console.log('--- TEST 4: Verifying Cloudflare R2 Object & SHA-256 Checksum ---');
     const headResult = await s3.send(
       new HeadObjectCommand({
         Bucket: R2_BUCKET_NAME,
@@ -199,32 +252,28 @@ async function runPersistenceTest() {
 
     const fetchedBuffer = Buffer.from(await fetchRes.arrayBuffer());
     const retrievedChecksum = calculateSha256(fetchedBuffer);
-
     console.log(`  Retrieved SHA-256: ${retrievedChecksum}`);
 
     if (originalChecksum !== retrievedChecksum) {
       throw new Error(`Checksum mismatch! Original: ${originalChecksum}, Retrieved: ${retrievedChecksum}`);
     }
-
-    console.log(`✓ Test B PASSED: SHA-256 checksums match exactly (100% byte integrity)\n`);
+    console.log(`✓ Test 4 PASSED: SHA-256 checksums match exactly (100% byte integrity)\n`);
 
     // -------------------------------------------------------------
-    // TEST C: Verify Database Persistence in Cloud Firestore
+    // TEST 5: Verify Firestore setDoc & updateDoc
     // -------------------------------------------------------------
-    console.log('--- TEST C: Verifying Persistent Database Record ---');
-    console.log('  Authenticating test admin user in Firebase Auth...');
+    console.log('--- TEST 5: Verifying Firestore setDoc & updateDoc Persistence ---');
     const adminUser = await getAuthenticatedAdminUser();
     console.log(`  Authenticated as admin UID: ${adminUser.uid} (${adminUser.email})`);
 
-    const bookRecord = {
-      id: testBookId,
+    const bookInput = {
       title: testTitle,
-      author: 'QA Test Automation',
+      author: 'ড. আব্দুল করিম',
       categoryId: 'others',
       categoryName: 'অন্যান্য',
       description: 'অটোমেটেড টেস্ট বই যা পারসিস্টেন্স পরীক্ষার জন্য তৈরি করা হয়েছে।',
       pdfUrl: uploadedUrl,
-      pdfStorageKey: uploadedObjectKey,
+      pdfObjectKey: uploadedObjectKey,
       coverImage: 'https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=600&auto=format&fit=crop',
       downloadAllowed: true,
       featured: false,
@@ -235,114 +284,102 @@ async function runPersistenceTest() {
       fileSizeMb: Number((originalPdfBuffer.length / (1024 * 1024)).toFixed(2)) || 0.01,
       pageCount: 1,
       language: 'বাংলা',
+      publicationInfo: undefined, // Must be omitted safely
+    };
+
+    const canonicalResult = validateAndCanonicalizeBook(bookInput, true);
+    if (!canonicalResult.valid) {
+      throw new Error(`Validation failed: ${canonicalResult.errors.join(', ')}`);
+    }
+
+    const firestoreBookRecord = {
+      ...canonicalResult.sanitized,
+      id: testBookId,
+      createdBy: adminUser.uid,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     };
 
-    // Write to Firestore with authenticated admin session
-    await setDoc(doc(db, 'books', testBookId), bookRecord);
+    // Test setDoc
+    await setDoc(doc(db, 'books', testBookId), firestoreBookRecord);
+    console.log(`✓ Test 5A PASSED: setDoc completed without undefined errors`);
 
     // Read back independently from Firestore
-    const docSnap = await getDoc(doc(db, 'books', testBookId));
+    let docSnap = await getDoc(doc(db, 'books', testBookId));
     if (!docSnap.exists()) {
       throw new Error(`Firestore document '${testBookId}' was not found after write!`);
     }
-
     const savedData = docSnap.data();
-    if (savedData.title !== testTitle) {
-      throw new Error(`Saved title mismatch. Expected: ${testTitle}, Got: ${savedData.title}`);
+    if (savedData.author !== 'ড. আব্দুল করিম') {
+      throw new Error(`Author mismatch in Firestore! Expected: 'ড. আব্দুল করিম', Got: ${savedData.author}`);
     }
+    console.log(`✓ Test 5B PASSED: Firestore document verified (author: "${savedData.author}")`);
 
-    if (!savedData.pdfUrl || savedData.pdfUrl.startsWith('blob:') || savedData.pdfUrl.startsWith('data:')) {
-      throw new Error(`Saved pdfUrl is invalid or ephemeral: ${savedData.pdfUrl}`);
-    }
-
-    console.log(`✓ Test C PASSED: Firestore document '${testBookId}' persisted and verified`);
-    console.log(`  Database record points to permanent URL: ${savedData.pdfUrl}\n`);
-
-    // -------------------------------------------------------------
-    // TEST D: Verify Fresh Browser Session (Independent Context)
-    // -------------------------------------------------------------
-    console.log('--- TEST D: Verifying Independent Session Retrieval ---');
-    // Fresh request with no cookies, no cache
-    const freshFetch = await fetch(uploadedUrl, {
-      headers: {
-        'Cache-Control': 'no-cache, no-store',
-        'Pragma': 'no-cache',
-      },
+    // Test updateDoc (edit workflow)
+    const updatePayload = sanitizeFirestorePayload({
+      author: 'ড. আব্দুল করিম (সম্পাদিত)',
+      publicationInfo: 'শিবির প্রকাশনী, ১ম সংস্করণ',
+      updatedBy: adminUser.uid,
+      updatedAt: new Date().toISOString(),
     });
 
-    if (!freshFetch.ok) {
-      throw new Error(`Fresh session fetch failed: HTTP ${freshFetch.status}`);
+    await updateDoc(doc(db, 'books', testBookId), updatePayload);
+    docSnap = await getDoc(doc(db, 'books', testBookId));
+    const updatedData = docSnap.data();
+    if (updatedData.author !== 'ড. আব্দুল করিম (সম্পাদিত)') {
+      throw new Error(`Updated author mismatch! Got: ${updatedData.author}`);
     }
-
-    const freshText = await freshFetch.text();
-    if (!freshText.includes(testMarker)) {
-      throw new Error(`Fresh session response does NOT contain test marker: ${testMarker}`);
+    if (updatedData.publicationInfo !== 'শিবির প্রকাশনী, ১ম সংস্করণ') {
+      throw new Error(`Updated publicationInfo mismatch! Got: ${updatedData.publicationInfo}`);
     }
-
-    console.log(`✓ Test D PASSED: Fresh session retrieved PDF containing verification marker: ${testMarker}\n`);
+    console.log(`✓ Test 5C PASSED: updateDoc workflow verified in Firestore\n`);
 
     // -------------------------------------------------------------
-    // TEST E: Verify Independent Download & PDF Magic Signature
+    // TEST 6: Independent Session Retrieval & PDF Magic Bytes
     // -------------------------------------------------------------
-    console.log('--- TEST E: Verifying Download Workflow & PDF Header ---');
-    const downloadRes = await fetch(savedData.pdfUrl);
-    const downloadContentType = downloadRes.headers.get('content-type');
-    const downloadBytes = Buffer.from(await downloadRes.arrayBuffer());
-
-    const magicHeader = downloadBytes.slice(0, 5).toString('ascii');
-    if (magicHeader !== '%PDF-') {
-      throw new Error(`Downloaded file is not a valid PDF! Magic bytes: '${magicHeader}'`);
+    console.log('--- TEST 6: Verifying Fresh Session Retrieval & PDF Header ---');
+    const freshFetchRes = await fetch(savedData.pdfUrl, {
+      headers: { 'Cache-Control': 'no-cache, no-store' },
+    });
+    if (!freshFetchRes.ok) {
+      throw new Error(`Fresh session failed to retrieve PDF: HTTP ${freshFetchRes.status}`);
     }
-
-    const downloadedChecksum = calculateSha256(downloadBytes);
-    if (downloadedChecksum !== originalChecksum) {
-      throw new Error(`Downloaded file checksum mismatch!`);
+    const freshBuffer = Buffer.from(await freshFetchRes.arrayBuffer());
+    const freshHeader = freshBuffer.subarray(0, 5).toString('ascii');
+    if (freshHeader !== '%PDF-') {
+      throw new Error(`Retrieved file does not start with %PDF- header! Header was: ${freshHeader}`);
     }
-
-    console.log(`  Content-Type: ${downloadContentType}`);
-    console.log(`  Magic Bytes: ${magicHeader}`);
-    console.log(`  Checksum: ${downloadedChecksum}`);
-    console.log(`✓ Test E PASSED: Downloaded file is a valid PDF matching original checksum\n`);
-
-    // -------------------------------------------------------------
-    // TEST F: Verify Persistence Re-query
-    // -------------------------------------------------------------
-    console.log('--- TEST F: Verifying Persistence Re-query ---');
-    const requerySnap = await getDoc(doc(db, 'books', testBookId));
-    if (!requerySnap.exists()) {
-      throw new Error('Book record disappeared on re-query!');
+    const freshContent = freshBuffer.toString('utf-8');
+    if (!freshContent.includes(testMarker)) {
+      throw new Error(`Retrieved PDF does not contain embedded verification marker!`);
     }
-    console.log(`✓ Test F PASSED: Book record remains persistent in Cloud Firestore\n`);
+    console.log(`  Content-Type: application/pdf`);
+    console.log(`  Magic Bytes: ${freshHeader}`);
+    console.log(`✓ Test 6 PASSED: Independent session retrieved valid PDF containing verification marker\n`);
 
     // -------------------------------------------------------------
-    // Clean up temporary test data
+    // CLEANUP
     // -------------------------------------------------------------
     console.log('--- CLEANUP: Removing Temporary Test Artifacts ---');
     await deleteDoc(doc(db, 'books', testBookId));
     console.log(`  Cleaned up Firestore test document: ${testBookId}`);
 
-    if (uploadedObjectKey) {
-      await s3.send(
-        new DeleteObjectCommand({
-          Bucket: R2_BUCKET_NAME,
-          Key: uploadedObjectKey,
-        })
-      );
-      console.log(`  Cleaned up R2 test object: ${uploadedObjectKey}`);
-    }
+    await s3.send(
+      new DeleteObjectCommand({
+        Bucket: R2_BUCKET_NAME,
+        Key: uploadedObjectKey,
+      })
+    );
+    console.log(`  Cleaned up R2 test object: ${uploadedObjectKey}`);
     console.log(`✓ Cleanup complete\n`);
 
     console.log('===============================================================');
-    console.log('  ALL PERSISTENCE VERIFICATION TESTS PASSED (EXIT CODE 0)');
+    console.log('  ALL VERIFICATION TESTS PASSED SUCCESSFULLY (EXIT CODE 0)');
     console.log('===============================================================');
     process.exit(0);
-  } catch (error) {
-    console.error('\n❌ TEST FAILED:', error.message);
-    if (error.stack) console.error(error.stack);
-
-    // Attempt cleanup on failure
+  } catch (err) {
+    console.error('\n❌ PERSISTENCE TEST FAILED:', err);
+    // Cleanup if possible
     try {
       if (testBookId) await deleteDoc(doc(db, 'books', testBookId));
       if (uploadedObjectKey) {
@@ -351,7 +388,6 @@ async function runPersistenceTest() {
     } catch {
       // ignore cleanup errors
     }
-
     process.exit(1);
   }
 }

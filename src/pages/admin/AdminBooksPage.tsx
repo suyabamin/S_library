@@ -101,6 +101,13 @@ export const AdminBooksPage: React.FC = () => {
                       >
                         <BookOpen className="w-4 h-4" />
                       </Link>
+                      <Link
+                        to={`/admin/books/${book.id}/edit`}
+                        className="p-1.5 rounded hover:bg-blue-50 text-blue-600"
+                        title="সম্পাদনা করুন"
+                      >
+                        <Edit className="w-4 h-4" />
+                      </Link>
                       <button
                         onClick={() => {
                           if (confirm(`আপনি কি "${book.title}" বইটি লাইব্রেরি থেকে মুছে ফেলতে চান?`)) {

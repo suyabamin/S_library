@@ -19,6 +19,7 @@ import {
   INITIAL_REQUESTS,
 } from '../lib/seedData';
 import { generateId } from '../lib/utils';
+import { validateAndCanonicalizeBook, sanitizeFirestorePayload } from '../lib/bookValidation';
 import { useAuth } from './AuthContext';
 import { db, isFirebaseConfigured } from '../lib/firebase';
 import { collection, doc, setDoc, updateDoc, deleteDoc, onSnapshot } from 'firebase/firestore';
@@ -36,7 +37,7 @@ interface LibraryContextType {
 
   // Actions
   addBook: (book: Omit<Book, 'id' | 'createdAt' | 'updatedAt'>) => Promise<Book>;
-  updateBook: (id: string, book: Partial<Book>) => void;
+  updateBook: (id: string, book: Partial<Book>) => Promise<Book>;
   deleteBook: (id: string) => void;
   submitBorrowRequest: (params: {
     bookId: string;
@@ -164,7 +165,7 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
         } else {
           // Initialize cloud collection with seed books
           INITIAL_BOOKS.forEach((ib) => {
-            setDoc(doc(db, 'books', ib.id), ib).catch(() => {});
+            setDoc(doc(db, 'books', ib.id), sanitizeFirestorePayload(ib)).catch(() => {});
           });
         }
       },
@@ -188,18 +189,26 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
   const getCategoryBySlug = (slug: string) => categories.find((c) => c.slug === slug || c.id === slug);
 
   const addBook = async (bookData: Omit<Book, 'id' | 'createdAt' | 'updatedAt'>): Promise<Book> => {
+    // 1. Strict schema validation & canonicalization before any write
+    const { valid, errors, sanitized } = validateAndCanonicalizeBook(bookData, true);
+    if (!valid) {
+      throw new Error(errors.join(' | '));
+    }
+
     const newBook: Book = {
-      ...bookData,
+      ...sanitized,
       id: generateId('book'),
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
-      createdBy: user?.uid,
-    };
+      ...(user?.uid ? { createdBy: user.uid } : {}),
+    } as Book;
 
     if (isFirebaseConfigured) {
+      // 2. Strict recursive sanitization: completely omits any undefined properties
+      const firestorePayload = sanitizeFirestorePayload(newBook);
       // Direct await ensures the book actually persists to Firestore before confirming success.
-      // Throws on permission denied or network failure so the caller can alert the user honestly.
-      await setDoc(doc(db, 'books', newBook.id), newBook);
+      // Throws on permission denied, invalid data, or network failure so the caller can alert the user honestly.
+      await setDoc(doc(db, 'books', newBook.id), firestorePayload);
     }
 
     setBooks((prev) => [newBook, ...prev.filter((b) => b.id !== newBook.id)]);
@@ -225,18 +234,53 @@ export const LibraryProvider: React.FC<{ children: React.ReactNode }> = ({ child
     return newBook;
   };
 
-  const updateBook = (id: string, updates: Partial<Book>) => {
-    setBooks((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, ...updates, updatedAt: new Date().toISOString() } : b))
-    );
-    if (isFirebaseConfigured) {
-      updateDoc(doc(db, 'books', id), {
-        ...updates,
-        updatedAt: new Date().toISOString(),
-      }).catch((err) => {
-        console.warn('Error updating book in Firestore:', err);
-      });
+  const updateBook = async (id: string, updates: Partial<Book>): Promise<Book> => {
+    const existing = books.find((b) => b.id === id);
+    if (!existing) {
+      throw new Error('বইটি খুঁজে পাওয়া যায়নি');
     }
+
+    const merged = { ...existing, ...updates };
+    const { valid, errors, sanitized } = validateAndCanonicalizeBook(merged, false);
+    if (!valid) {
+      throw new Error(errors.join(' | '));
+    }
+
+    const updatedBook: Book = {
+      ...sanitized,
+      id,
+      createdAt: existing.createdAt || new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      ...(user?.uid ? { updatedBy: user.uid } : {}),
+    } as Book;
+
+    if (isFirebaseConfigured) {
+      const firestorePayload = sanitizeFirestorePayload(updatedBook);
+      await updateDoc(doc(db, 'books', id), firestorePayload);
+    }
+
+    setBooks((prev) =>
+      prev.map((b) => (b.id === id ? updatedBook : b))
+    );
+
+    if (user) {
+      setAuditLogs((prev) => [
+        {
+          id: generateId('audit'),
+          action: 'UPDATE_BOOK',
+          actorUid: user.uid,
+          actorName: user.displayName,
+          actorRole: user.role,
+          entityType: 'book',
+          entityId: id,
+          details: `বই সম্পাদনা করা হয়েছে: ${updatedBook.title}`,
+          createdAt: new Date().toISOString(),
+        },
+        ...prev,
+      ]);
+    }
+
+    return updatedBook;
   };
 
   const deleteBook = (id: string) => {

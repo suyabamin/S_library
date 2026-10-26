@@ -9,7 +9,7 @@
     "lint": "eslint .",
     "preview": "vite preview",
     "test": "vitest run",
-    "test:book-upload": "node scripts/test-book-upload-persistence.mjs"
+    "test:book-upload": "node --experimental-strip-types scripts/test-book-upload-persistence.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.600.0",

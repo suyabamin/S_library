@@ -1,20 +1,19 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import { AdminDashboardLayout } from '../../components/layout/AdminDashboardLayout';
 import { useLibrary } from '../../context/LibraryContext';
 import {
   Upload,
   BookOpen,
   CheckCircle2,
-  AlertCircle,
   FileText,
-  Image as ImageIcon,
 } from 'lucide-react';
-import { storageService } from '../../lib/storage';
 
 export const AdminAddEditBookPage: React.FC = () => {
-  const { categories, addBook } = useLibrary();
+  const { categories, addBook, updateBook, getBookById } = useLibrary();
   const navigate = useNavigate();
+  const { bookId } = useParams<{ bookId?: string }>();
+  const isEdit = Boolean(bookId);
 
   const [activeTab, setActiveTab] = useState<'add' | 'list'>('add');
 
@@ -30,9 +29,9 @@ export const AdminAddEditBookPage: React.FC = () => {
   const [featured, setFeatured] = useState(false);
 
   // File Upload State
-  const [coverPreview, setCoverPreview] = useState<string>('https://images.unsplash.com/photo-1544716278-ca5e3f4abd8c?q=80&w=600&auto=format&fit=crop');
-  const [pdfFileName, setPdfFileName] = useState<string>('sample-book.pdf');
-  const [pdfUrl, setPdfUrl] = useState<string>('https://raw.githubusercontent.com/mozilla/pdf.js/ba2edeae/web/compressed.tracemonkey-pldi-09.pdf');
+  const [coverPreview, setCoverPreview] = useState<string>('');
+  const [pdfFileName, setPdfFileName] = useState<string>('');
+  const [pdfUrl, setPdfUrl] = useState<string>('');
   const [uploadingPdf, setUploadingPdf] = useState(false);
   const [uploadProgress, setUploadProgress] = useState<number>(0);
   const [uploadingCover, setUploadingCover] = useState(false);
@@ -40,11 +39,98 @@ export const AdminAddEditBookPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [successMessage, setSuccessMessage] = useState(false);
 
-  const uploadFileToR2 = (
+  // Load existing book data in Edit Mode
+  useEffect(() => {
+    if (bookId) {
+      const existing = getBookById(bookId);
+      if (existing) {
+        setTitle(existing.title || '');
+        setAuthor(existing.author || '');
+        setCategoryId(existing.categoryId || categories[0]?.id || 'quran');
+        setDescription(existing.description || '');
+        setPublicationInfo(existing.publicationInfo || '');
+        setLanguage(existing.language || 'বাংলা');
+        setTotalCopies(existing.totalPhysicalCopies ?? 3);
+        setDownloadAllowed(existing.downloadAllowed ?? true);
+        setFeatured(existing.featured ?? false);
+        setCoverPreview(existing.coverImage || '');
+        setPdfUrl(existing.pdfUrl || '');
+        if (existing.pdfUrl) {
+          const parts = existing.pdfUrl.split('/');
+          setPdfFileName(decodeURIComponent(parts[parts.length - 1] || 'সংরক্ষিত পিডিএফ'));
+        }
+      }
+    }
+  }, [bookId, getBookById, categories]);
+
+  // Robust direct upload to Cloudflare R2:
+  // First attempts presigned PUT upload (handles up to 50MB, avoids server payload limits)
+  // Falls back to streaming /api/upload
+  const uploadFileToR2 = async (
     file: File,
     folder: 'covers' | 'pdfs',
     onProgress: (pct: number) => void
   ): Promise<string> => {
+    // 1. Try presigned PUT upload
+    try {
+      const presignEndpoints = ['/api/presign', '/api/storage/presigned-upload'];
+      let presignData: any = null;
+
+      for (const endpoint of presignEndpoints) {
+        try {
+          const res = await fetch(endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              filename: file.name,
+              contentType: file.type || (folder === 'pdfs' ? 'application/pdf' : 'image/jpeg'),
+              folder,
+            }),
+          });
+          if (res.ok) {
+            presignData = await res.json();
+            if (presignData?.uploadUrl && presignData?.publicUrl) {
+              break;
+            }
+          }
+        } catch {
+          // try next endpoint
+        }
+      }
+
+      if (presignData?.uploadUrl && presignData?.publicUrl) {
+        return await new Promise<string>((resolve, reject) => {
+          const xhr = new XMLHttpRequest();
+          xhr.open('PUT', presignData.uploadUrl, true);
+          xhr.setRequestHeader('Content-Type', file.type || (folder === 'pdfs' ? 'application/pdf' : 'image/jpeg'));
+
+          xhr.upload.onprogress = (event) => {
+            if (event.lengthComputable && event.total > 0) {
+              const percent = Math.round((event.loaded / event.total) * 100);
+              onProgress(percent);
+            }
+          };
+
+          xhr.onload = () => {
+            if (xhr.status >= 200 && xhr.status < 300) {
+              resolve(presignData.publicUrl);
+            } else {
+              reject(new Error(`Direct storage upload status ${xhr.status}`));
+            }
+          };
+
+          xhr.onerror = () => reject(new Error('Network error during direct storage upload'));
+          xhr.ontimeout = () => reject(new Error('Storage upload timed out'));
+          xhr.timeout = 180000;
+
+          xhr.send(file);
+        });
+      }
+    } catch (presignErr) {
+      console.warn('Presigned upload failed, falling back to streaming endpoint:', presignErr);
+    }
+
+    // 2. Fallback to streaming upload
     return new Promise((resolve, reject) => {
       const xhr = new XMLHttpRequest();
       xhr.open('POST', '/api/upload', true);
@@ -76,7 +162,7 @@ export const AdminAddEditBookPage: React.FC = () => {
 
       xhr.onerror = () => reject(new Error('Network error during upload'));
       xhr.ontimeout = () => reject(new Error('Upload timed out'));
-      xhr.timeout = 120000;
+      xhr.timeout = 180000;
 
       xhr.send(file);
     });
@@ -150,8 +236,15 @@ export const AdminAddEditBookPage: React.FC = () => {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    // 1. Client-side field validations with clear Bengali error alerts
     if (!title.trim()) {
-      alert('বইয়ের নাম প্রদান করুন');
+      alert('অনুগ্রহ করে বইয়ের নাম প্রদান করুন');
+      return;
+    }
+
+    if (!author.trim()) {
+      alert('অনুগ্রহ করে লেখকের নাম প্রদান করুন');
       return;
     }
 
@@ -174,25 +267,31 @@ export const AdminAddEditBookPage: React.FC = () => {
     try {
       const cat = categories.find((c) => c.id === categoryId);
 
-      await addBook({
+      const payload = {
         title: title.trim(),
-        author: author.trim() || undefined,
+        author: author.trim(),
         categoryId,
         categoryName: cat?.nameBn || 'সিলেবাস',
         description: description.trim(),
         publicationInfo: publicationInfo.trim() || undefined,
         language,
-        coverImage: coverPreview || undefined,
-        pdfUrl: pdfUrl,
+        coverImage: coverPreview.trim() || undefined,
+        pdfUrl: pdfUrl.trim(),
         downloadAllowed,
         featured,
-        status: 'published',
+        status: 'published' as const,
         isPhysicalAvailable: totalCopies > 0,
         totalPhysicalCopies: totalCopies,
         availablePhysicalCopies: totalCopies,
         fileSizeMb: 4.5,
         pageCount: 320,
-      });
+      };
+
+      if (isEdit && bookId) {
+        await updateBook(bookId, payload);
+      } else {
+        await addBook(payload);
+      }
 
       setSuccessMessage(true);
       setTimeout(() => {
@@ -209,7 +308,7 @@ export const AdminAddEditBookPage: React.FC = () => {
   return (
     <AdminDashboardLayout>
       <div className="bg-white rounded-card border border-brand-border p-6 sm:p-8 card-shadow space-y-6">
-        {/* Tabs matching Reference Screen */}
+        {/* Tabs */}
         <div className="flex items-center justify-between pb-4 border-b border-brand-border">
           <div className="flex items-center gap-3">
             <button
@@ -220,7 +319,7 @@ export const AdminAddEditBookPage: React.FC = () => {
                   : 'text-brand-muted hover:text-brand-text'
               }`}
             >
-              বই যোগ করুন
+              {isEdit ? 'বই সম্পাদনা করুন' : 'বই যোগ করুন'}
             </button>
             <button
               onClick={() => navigate('/admin/books')}
@@ -234,11 +333,11 @@ export const AdminAddEditBookPage: React.FC = () => {
         {successMessage && (
           <div className="p-4 rounded-xl bg-emerald-50 border border-emerald-200 text-emerald-800 text-sm font-semibold flex items-center gap-2">
             <CheckCircle2 className="w-5 h-5 text-emerald-600" />
-            <span>নতুন বইটি লাইব্রেরিতে সফলভাবে যুক্ত হয়েছে! ক্যাটালগে স্থানান্তর করা হচ্ছে...</span>
+            <span>{isEdit ? 'বইটির তথ্য সফলভাবে আপডেট হয়েছে!' : 'নতুন বইটি লাইব্রেরিতে সফলভাবে যুক্ত হয়েছে!'} ক্যাটালগে স্থানান্তর করা হচ্ছে...</span>
           </div>
         )}
 
-        {/* Add Book Form matching Reference Screen */}
+        {/* Add/Edit Book Form */}
         <form onSubmit={handleSubmit} className="space-y-6 text-sm">
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-5">
             <div>
@@ -257,10 +356,11 @@ export const AdminAddEditBookPage: React.FC = () => {
 
             <div>
               <label className="block text-xs font-bold text-brand-text mb-1">
-                লেখকের নাম
+                লেখকের নাম <span className="text-rose-500">*</span>
               </label>
               <input
                 type="text"
+                required
                 value={author}
                 onChange={(e) => setAuthor(e.target.value)}
                 placeholder="যেমন: ইমাদ ইবনে কাসীর"
@@ -316,11 +416,10 @@ export const AdminAddEditBookPage: React.FC = () => {
 
           <div>
             <label className="block text-xs font-bold text-brand-text mb-1">
-              বিবরণ <span className="text-rose-500">*</span>
+              বিবরণ
             </label>
             <textarea
               rows={4}
-              required
               value={description}
               onChange={(e) => setDescription(e.target.value)}
               placeholder="বইয়ের বিষয়বস্তু, সারসংক্ষেপ ও প্রাসঙ্গিক তথ্য লিখুন..."
@@ -328,12 +427,25 @@ export const AdminAddEditBookPage: React.FC = () => {
             />
           </div>
 
-          {/* Upload Drag & Drop Boxes matching Reference */}
+          <div>
+            <label className="block text-xs font-bold text-brand-text mb-1">
+              প্রকাশনা ও সংস্করণের তথ্য
+            </label>
+            <input
+              type="text"
+              value={publicationInfo}
+              onChange={(e) => setPublicationInfo(e.target.value)}
+              placeholder="যেমন: ইসলামিক ফাউন্ডেশন বাংলাদেশ, ৩য় সংস্করণ"
+              className="w-full px-3.5 py-2.5 rounded-lg border border-brand-border focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm"
+            />
+          </div>
+
+          {/* Upload Drag & Drop Boxes */}
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
             {/* Cover Upload Box */}
             <div className="space-y-2">
               <label className="block text-xs font-bold text-brand-text">
-                কভার ছবি <span className="text-rose-500">*</span>
+                কভার ছবি
               </label>
               <div className="border-2 border-dashed border-emerald-300 rounded-2xl p-4 text-center hover:bg-emerald-50/30 transition flex flex-col items-center justify-center min-h-[160px] relative">
                 {uploadingCover ? (
@@ -469,7 +581,7 @@ export const AdminAddEditBookPage: React.FC = () => {
               disabled={submitting}
               className="px-7 py-2.5 rounded-lg bg-primary text-white font-bold hover:bg-primary-hover shadow-sm transition disabled:opacity-50"
             >
-              {submitting ? 'সংরক্ষণ হচ্ছে...' : 'সংরক্ষণ করুন'}
+              {submitting ? 'সংরক্ষণ হচ্ছে...' : isEdit ? 'আপডেট করুন' : 'সংরক্ষণ করুন'}
             </button>
           </div>
         </form>

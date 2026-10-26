@@ -59,6 +59,7 @@ export interface Book {
   createdAt: string;
   updatedAt: string;
   createdBy?: string;
+  updatedBy?: string;
 }
 
 export interface PhysicalBook {
