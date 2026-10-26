@@ -48,43 +48,42 @@ export const SiteHeader: React.FC = () => {
 
   return (
     <header className="sticky top-0 z-40 bg-white/97 backdrop-blur-md border-b border-brand-border shadow-sm">
-      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
-        {/* Main header row — fixed height, no overflow */}
-        <div className="flex items-center h-14 sm:h-16 gap-2 sm:gap-3">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-6 xl:px-8">
+        {/* Main header row — fluid height, flexible, zero overflow */}
+        <div className="flex items-center justify-between h-14 sm:h-16 gap-1 sm:gap-2 md:gap-3 min-w-0">
 
-          {/* Logo & Brand — shrinks on mobile */}
+          {/* Logo & Brand — responsive flex item */}
           <Link
             to="/"
-            className="flex items-center gap-2 sm:gap-2.5 group focus:outline-none shrink-0 mr-auto lg:mr-0"
-            style={{ minWidth: 0 }}
+            className="flex items-center gap-2 sm:gap-2.5 group focus:outline-none shrink-0 min-w-0"
           >
             <img
               src="/assets/logo.webp"
               alt="শিবির লাইব্রেরি, UIU থানা"
-              className="w-9 h-9 sm:w-11 sm:h-11 object-contain shrink-0 rounded"
+              className="w-8 h-8 sm:w-10 sm:h-10 md:w-11 md:h-11 object-contain shrink-0 rounded"
               loading="eager"
             />
             <div className="hidden xs:flex flex-col min-w-0">
-              <span className="text-sm sm:text-base md:text-lg font-bold text-brand-text tracking-tight group-hover:text-primary transition-colors leading-tight truncate">
+              <span className="text-xs sm:text-sm md:text-base lg:text-lg font-bold text-brand-text tracking-tight group-hover:text-primary transition-colors leading-tight truncate">
                 শিবির লাইব্রেরি, <span className="text-primary">UIU থানা</span>
               </span>
-              <span className="text-[10px] sm:text-xs font-semibold text-primary tracking-widest hidden sm:block">
+              <span className="text-[10px] sm:text-xs font-semibold text-primary tracking-widest hidden md:block">
                 শহিদি কাফেলা
               </span>
             </div>
             {/* On very small screens, show just the short title next to logo */}
-            <span className="xs:hidden text-sm font-bold text-brand-text truncate max-w-[140px] group-hover:text-primary transition-colors">
+            <span className="xs:hidden text-xs sm:text-sm font-bold text-brand-text truncate max-w-[130px] group-hover:text-primary transition-colors">
               শিবির লাইব্রেরি
             </span>
           </Link>
 
-          {/* Desktop Navigation — only on large screens */}
-          <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1 ml-4">
+          {/* Desktop Navigation — appears from md (768px+) with adaptive spacing */}
+          <nav className="hidden md:flex items-center gap-0.5 lg:gap-1 xl:gap-2 px-1 min-w-0 overflow-hidden">
             {navLinks.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`px-2.5 xl:px-3.5 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
+                className={`px-2 lg:px-2.5 xl:px-3.5 py-1.5 lg:py-2 rounded-lg text-xs lg:text-sm font-medium transition-all whitespace-nowrap shrink-0 ${
                   isActive(item.path)
                     ? 'text-primary bg-primary-soft font-semibold'
                     : 'text-brand-muted hover:text-brand-text hover:bg-gray-100/70'
@@ -96,7 +95,7 @@ export const SiteHeader: React.FC = () => {
           </nav>
 
           {/* Right side actions */}
-          <div className="flex items-center gap-1 sm:gap-2 ml-auto lg:ml-4 shrink-0">
+          <div className="flex items-center gap-1 sm:gap-2 shrink-0">
             {/* Notification Bell — only for authenticated users */}
             {isAuthenticated && (
               <div className="relative">
@@ -198,10 +197,10 @@ export const SiteHeader: React.FC = () => {
               </div>
             )}
 
-            {/* Mobile Hamburger — only on < lg */}
+            {/* Mobile Hamburger — only on < md */}
             <button
               onClick={() => { setMobileMenuOpen(!mobileMenuOpen); setUserMenuOpen(false); setNotificationsOpen(false); }}
-              className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg text-brand-muted hover:text-brand-text hover:bg-gray-100 focus:outline-none shrink-0"
+              className="md:hidden w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg text-brand-muted hover:text-brand-text hover:bg-gray-100 focus:outline-none shrink-0"
               aria-label={mobileMenuOpen ? 'মেনু বন্ধ করুন' : 'মেনু খুলুন'}
             >
               {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
@@ -210,9 +209,9 @@ export const SiteHeader: React.FC = () => {
         </div>
       </div>
 
-      {/* Mobile Drawer Menu */}
+      {/* Mobile Drawer Menu — only on < md */}
       {mobileMenuOpen && (
-        <div className="lg:hidden bg-white border-b border-brand-border px-4 pt-2 pb-5 space-y-1 shadow-md">
+        <div className="md:hidden bg-white border-b border-brand-border px-4 pt-2 pb-5 space-y-1 shadow-md">
           {navLinks.map((item) => (
             <Link
               key={item.path}

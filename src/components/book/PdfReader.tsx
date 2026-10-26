@@ -28,9 +28,10 @@ interface PageRenderItemProps {
   pageNumber: number;
   pdfDoc: pdfjsLib.PDFDocumentProxy;
   zoom: number;
+  containerWidth: number;
 }
 
-const PageRenderItem: React.FC<PageRenderItemProps> = React.memo(({ pageNumber, pdfDoc, zoom }) => {
+const PageRenderItem: React.FC<PageRenderItemProps> = React.memo(({ pageNumber, pdfDoc, zoom, containerWidth }) => {
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
   const containerRef = useRef<HTMLDivElement | null>(null);
   const [isVisible, setIsVisible] = useState<boolean>(false);
@@ -53,6 +54,18 @@ const PageRenderItem: React.FC<PageRenderItemProps> = React.memo(({ pageNumber, 
       active = false;
     };
   }, [pdfDoc, pageNumber]);
+
+  // Compute responsive display width:
+  // On mobile (< 640px), fit available width seamlessly with comfortable padding.
+  // On desktop, center with max width 860px (or scaled by zoom) preserving aspect ratio.
+  const isMobile = containerWidth > 0 && containerWidth < 640;
+  const baseTargetWidth = isMobile
+    ? Math.max(containerWidth - 16, 260) // fill mobile width with 8px margin each side
+    : Math.min(Math.floor(pageDimensions.width * zoom * 1.35), Math.max(containerWidth - 48, 400));
+
+  const displayWidth = Math.min(baseTargetWidth, containerWidth > 0 ? containerWidth - 12 : 860);
+  const aspectRatio = pageDimensions.height / (pageDimensions.width || 1);
+  const displayHeight = Math.floor(displayWidth * aspectRatio);
 
   // IntersectionObserver for lazy rendering pages as user scrolls
   useEffect(() => {
@@ -84,9 +97,9 @@ const PageRenderItem: React.FC<PageRenderItemProps> = React.memo(({ pageNumber, 
     return () => observer.disconnect();
   }, []);
 
-  // Render page when visible
+  // Render page when visible or when display width / zoom changes
   useEffect(() => {
-    if (!isVisible || !pdfDoc) return;
+    if (!isVisible || !pdfDoc || displayWidth <= 0) return;
     let cancelRender = false;
     let renderTask: any = null;
 
@@ -97,18 +110,16 @@ const PageRenderItem: React.FC<PageRenderItemProps> = React.memo(({ pageNumber, 
       const ctx = canvas.getContext('2d');
       if (!ctx) return;
 
-      // Hi-DPI scaling for crisp text
-      const dpr = window.devicePixelRatio || 1;
-      const scale = zoom * 1.5;
-      const viewport = page.getViewport({ scale });
+      // Scale viewport to exactly match displayWidth
+      const baseViewport = page.getViewport({ scale: 1.0 });
+      const renderScale = displayWidth / baseViewport.width;
+      const dpr = Math.min(window.devicePixelRatio || 1, 2.5); // Cap DPR at 2.5 for mobile memory balance
+      const viewport = page.getViewport({ scale: renderScale * dpr });
 
-      canvas.width = Math.floor(viewport.width * dpr);
-      canvas.height = Math.floor(viewport.height * dpr);
-      canvas.style.width = `${Math.floor(viewport.width)}px`;
-      canvas.style.height = `${Math.floor(viewport.height)}px`;
-
-      ctx.save();
-      ctx.scale(dpr, dpr);
+      canvas.width = Math.floor(viewport.width);
+      canvas.height = Math.floor(viewport.height);
+      canvas.style.width = `${displayWidth}px`;
+      canvas.style.height = `${displayHeight}px`;
 
       const renderContext = {
         canvasContext: ctx,
@@ -128,9 +139,6 @@ const PageRenderItem: React.FC<PageRenderItemProps> = React.memo(({ pageNumber, 
             console.error(`Page ${pageNumber} render error:`, err);
             setRenderError(true);
           }
-        })
-        .finally(() => {
-          ctx.restore();
         });
     }).catch(() => {
       if (!cancelRender) setRenderError(true);
@@ -144,26 +152,28 @@ const PageRenderItem: React.FC<PageRenderItemProps> = React.memo(({ pageNumber, 
         } catch {}
       }
     };
-  }, [isVisible, pdfDoc, pageNumber, zoom]);
-
-  const targetWidth = Math.floor(pageDimensions.width * zoom * 1.5);
-  const targetHeight = Math.floor(pageDimensions.height * zoom * 1.5);
+  }, [isVisible, pdfDoc, pageNumber, displayWidth, displayHeight]);
 
   return (
     <div
       ref={containerRef}
       id={`pdf-page-${pageNumber}`}
       data-page-number={pageNumber}
-      className="relative mx-auto my-4 bg-white shadow-xl rounded-sm transition-all duration-150 flex flex-col items-center justify-center border border-gray-300/40"
+      className="relative mx-auto my-2 sm:my-4 bg-white shadow-xl rounded-sm transition-all duration-150 flex flex-col items-center justify-center border border-gray-300/40"
       style={{
-        width: `${targetWidth}px`,
-        maxWidth: '96vw',
-        minHeight: `${Math.min(targetHeight, 350)}px`,
+        width: `${displayWidth}px`,
+        maxWidth: '100%',
+        minHeight: `${Math.min(displayHeight, 400)}px`,
       }}
     >
       <canvas
         ref={canvasRef}
-        className={`max-w-full h-auto block ${isRendered ? 'opacity-100' : 'opacity-0'} transition-opacity duration-200`}
+        className={`w-full h-auto block ${isRendered ? 'opacity-100' : 'opacity-0'} transition-opacity duration-200`}
+        style={{
+          width: `${displayWidth}px`,
+          height: `${displayHeight}px`,
+          maxWidth: '100%',
+        }}
       />
 
       {/* Loading or placeholder indicator while rendering/scrolling */}
@@ -201,6 +211,37 @@ export const PdfReader: React.FC<PdfReaderProps> = ({ book }) => {
   const [error, setError] = useState<string | null>(null);
   const [showThumbnails, setShowThumbnails] = useState<boolean>(false);
   const [reloadTrigger, setReloadTrigger] = useState<number>(0);
+  const [containerWidth, setContainerWidth] = useState<number>(0);
+
+  // Measure and observe container width for responsive page fitting
+  useEffect(() => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+
+    const updateWidth = () => {
+      setContainerWidth(el.clientWidth);
+    };
+
+    updateWidth();
+
+    let resizeObserver: ResizeObserver | null = null;
+    if (typeof ResizeObserver !== 'undefined') {
+      resizeObserver = new ResizeObserver(() => {
+        updateWidth();
+      });
+      resizeObserver.observe(el);
+    } else {
+      window.addEventListener('resize', updateWidth);
+    }
+
+    return () => {
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      } else {
+        window.removeEventListener('resize', updateWidth);
+      }
+    };
+  }, []);
 
   // Load PDF Document
   useEffect(() => {
@@ -508,13 +549,14 @@ export const PdfReader: React.FC<PdfReaderProps> = ({ book }) => {
 
           {/* Continuous Pages Rendered from 1 to totalPages in natural vertical sequence */}
           {!loading && !error && pdfDoc && (
-            <div className="w-full flex flex-col items-center py-2 space-y-4">
+            <div className="w-full flex flex-col items-center py-2 space-y-3 sm:space-y-4">
               {Array.from({ length: totalPages }, (_, index) => index + 1).map((pg) => (
                 <PageRenderItem
                   key={`page-${pg}`}
                   pageNumber={pg}
                   pdfDoc={pdfDoc}
                   zoom={zoom}
+                  containerWidth={containerWidth}
                 />
               ))}
 
