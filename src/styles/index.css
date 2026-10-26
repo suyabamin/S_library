@@ -30,6 +30,8 @@
     /* Prevent horizontal overflow at the root */
     overflow-x: hidden;
     width: 100%;
+    -webkit-tap-highlight-color: transparent;
+    touch-action: manipulation;
   }
 
   * {
@@ -92,4 +94,17 @@
 /* Truncate utilities for flex children */
 .flex-min-0 {
   min-width: 0;
+}
+
+/* Smooth mobile scrolling */
+html {
+  scroll-behavior: smooth;
+  -webkit-text-size-adjust: 100%;
+}
+
+/* Safe touch target size for interactive controls */
+@media (max-width: 640px) {
+  button, a, input, select, textarea {
+    touch-action: manipulation;
+  }
 }

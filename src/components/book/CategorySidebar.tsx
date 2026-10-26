@@ -37,7 +37,7 @@ export const CategorySidebar: React.FC<CategorySidebarProps> = ({
           }`}
         >
           <span className="flex items-center gap-2">
-            <Layers className="w-4 h-4 text-emerald-700" /> সব বই
+            <Layers className="w-4 h-4 text-primary" /> সব বই
           </span>
           <span className="text-xs text-brand-muted bg-gray-100 px-2 py-0.5 rounded-full">
             {toBengaliNumber(books.length)}

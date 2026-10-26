@@ -77,10 +77,10 @@ export const BookCard: React.FC<BookCardProps> = ({ book, showBorrowAction = fal
         </div>
 
         {/* Action Buttons */}
-        <div className="mt-4 pt-3 border-t border-brand-border/60 grid grid-cols-2 gap-2">
+        <div className="mt-3 sm:mt-4 pt-2.5 sm:pt-3 border-t border-brand-border/60 grid grid-cols-2 gap-1.5 sm:gap-2">
           <Link
             to={`/reader/${book.id}`}
-            className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold text-white bg-primary hover:bg-primary-hover transition text-center shadow-sm"
+            className="flex items-center justify-center gap-1.5 py-2 sm:py-1.5 px-2 sm:px-3 rounded-lg text-xs font-bold text-white bg-primary hover:bg-primary-hover active:scale-[0.98] transition text-center shadow-sm min-h-[36px]"
           >
             <BookOpen className="w-3.5 h-3.5" /> পড়ুন
           </Link>
@@ -88,7 +88,7 @@ export const BookCard: React.FC<BookCardProps> = ({ book, showBorrowAction = fal
           {showBorrowAction ? (
             <Link
               to={`/borrow/${book.id}`}
-              className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold text-primary bg-primary-soft hover:bg-primary-soft/80 border border-primary/20 transition text-center"
+              className="flex items-center justify-center gap-1.5 py-2 sm:py-1.5 px-2 sm:px-3 rounded-lg text-xs font-bold text-primary bg-primary-soft hover:bg-primary-soft/80 active:scale-[0.98] border border-primary/20 transition text-center min-h-[36px]"
             >
               <BookMarked className="w-3.5 h-3.5" /> ধার নিন
             </Link>
@@ -98,14 +98,14 @@ export const BookCard: React.FC<BookCardProps> = ({ book, showBorrowAction = fal
               download={book.downloadAllowed ? `${book.title}.pdf` : undefined}
               target="_blank"
               rel="noreferrer"
-              className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold text-brand-text bg-gray-100 hover:bg-gray-200 border border-brand-border transition text-center"
+              className="flex items-center justify-center gap-1.5 py-2 sm:py-1.5 px-2 sm:px-3 rounded-lg text-xs font-semibold text-brand-text bg-gray-100 hover:bg-gray-200 active:scale-[0.98] border border-brand-border transition text-center min-h-[36px]"
             >
               <Download className="w-3.5 h-3.5 text-brand-muted" /> ডাউনলোড
             </a>
           ) : (
             <Link
               to={`/books/${book.id}`}
-              className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold text-brand-muted bg-gray-50 border border-brand-border transition text-center"
+              className="flex items-center justify-center gap-1.5 py-2 sm:py-1.5 px-2 sm:px-3 rounded-lg text-xs font-semibold text-brand-muted bg-gray-50 border border-brand-border active:scale-[0.98] transition text-center min-h-[36px]"
             >
               বিস্তারিত
             </Link>

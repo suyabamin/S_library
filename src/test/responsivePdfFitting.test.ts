@@ -1,6 +1,6 @@
 import { describe, it, expect } from 'vitest';
 
-describe('Responsive Layout Math & Page Fitting Computations', () => {
+describe('Mobile PDF Full-Page Viewport & Responsive Fitting', () => {
   const computePageDimensions = (
     containerWidth: number,
     pageOriginalWidth: number,
@@ -8,51 +8,72 @@ describe('Responsive Layout Math & Page Fitting Computations', () => {
     zoom: number
   ) => {
     const isMobile = containerWidth > 0 && containerWidth < 640;
-    const baseTargetWidth = isMobile
-      ? Math.max(containerWidth - 16, 260)
-      : Math.min(Math.floor(pageOriginalWidth * zoom * 1.35), Math.max(containerWidth - 48, 400));
+    const availableContentWidth = containerWidth > 0
+      ? (isMobile ? Math.max(containerWidth - 8, 200) : containerWidth - 48)
+      : 360;
 
-    const displayWidth = Math.min(baseTargetWidth, containerWidth > 0 ? containerWidth - 12 : 860);
+    const baseDesktopWidth = Math.min(
+      Math.floor(pageOriginalWidth * zoom * 1.35),
+      availableContentWidth,
+      880
+    );
+
+    const displayWidth = isMobile
+      ? availableContentWidth
+      : Math.max(baseDesktopWidth, 320);
+
     const aspectRatio = pageOriginalHeight / (pageOriginalWidth || 1);
     const displayHeight = Math.floor(displayWidth * aspectRatio);
 
-    return { displayWidth, displayHeight, isMobile };
+    return { displayWidth, displayHeight, isMobile, availableContentWidth };
   };
 
   const testViewports = [
-    { name: 'Small mobile (320px)', width: 320, height: 640 },
-    { name: 'Standard mobile (375px)', width: 375, height: 812 },
-    { name: 'Large mobile (430px)', width: 430, height: 932 },
-    { name: 'Tablet (768px)', width: 768, height: 1024 },
-    { name: 'Small desktop (1024px)', width: 1024, height: 768 },
-    { name: 'Standard desktop (1366px)', width: 1366, height: 768 },
+    { name: 'Small phone (320px)', width: 320, height: 640 },
+    { name: 'Standard phone (375px)', width: 375, height: 812 },
+    { name: 'Large phone (430px)', width: 430, height: 932 },
+    { name: 'Phone Landscape (640px)', width: 640, height: 360 },
+    { name: 'Small tablet (768px)', width: 768, height: 1024 },
+    { name: 'Desktop (1366px)', width: 1366, height: 768 },
     { name: 'Large desktop (1920px)', width: 1920, height: 1080 },
   ];
 
-  const standardA4 = { width: 595.28, height: 841.89 }; // standard PDF points
+  const portraitDoc = { width: 595.28, height: 841.89 }; // standard portrait
+  const landscapeDoc = { width: 841.89, height: 595.28 }; // standard landscape
 
   testViewports.forEach((vp) => {
-    it(`fits standard portrait PDF cleanly within ${vp.name} without overflow`, () => {
+    it(`fits portrait document fully into ${vp.name} with 100% visible horizontal width`, () => {
       const { displayWidth, displayHeight } = computePageDimensions(
         vp.width,
-        standardA4.width,
-        standardA4.height,
+        portraitDoc.width,
+        portraitDoc.height,
         1.0
       );
 
-      // Must strictly fit inside container width
+      // Must strictly fit within viewport width
       expect(displayWidth).toBeLessThan(vp.width);
-      // Margin on mobile must leave at least 12px breathing room
-      expect(displayWidth).toBeLessThanOrEqual(vp.width - 12);
-      // Aspect ratio must be preserved within 1px rounding
-      const expectedRatio = standardA4.height / standardA4.width;
+      // On mobile, must leave exactly 8px breathing room (4px on each side)
+      if (vp.width < 640) {
+        expect(displayWidth).toBe(vp.width - 8);
+      }
+      // Aspect ratio strictly preserved
+      const expectedRatio = portraitDoc.height / portraitDoc.width;
       const actualRatio = displayHeight / displayWidth;
       expect(Math.abs(actualRatio - expectedRatio)).toBeLessThan(0.01);
+    });
 
-      // On large desktop, must not over-expand to infinite width
-      if (vp.width >= 1366) {
-        expect(displayWidth).toBeLessThanOrEqual(1000);
-      }
+    it(`fits landscape document cleanly into ${vp.name} without distortion`, () => {
+      const { displayWidth, displayHeight } = computePageDimensions(
+        vp.width,
+        landscapeDoc.width,
+        landscapeDoc.height,
+        1.0
+      );
+
+      expect(displayWidth).toBeLessThan(vp.width);
+      const expectedRatio = landscapeDoc.height / landscapeDoc.width;
+      const actualRatio = displayHeight / displayWidth;
+      expect(Math.abs(actualRatio - expectedRatio)).toBeLessThan(0.01);
     });
   });
 });

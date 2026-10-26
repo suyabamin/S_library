@@ -56,14 +56,24 @@ const PageRenderItem: React.FC<PageRenderItemProps> = React.memo(({ pageNumber, 
   }, [pdfDoc, pageNumber]);
 
   // Compute responsive display width:
-  // On mobile (< 640px), fit available width seamlessly with comfortable padding.
-  // On desktop, center with max width 860px (or scaled by zoom) preserving aspect ratio.
+  // The available reading viewport width inside <main> accounting for scrollbar and breathing room:
+  // On mobile (< 640px): leave 8px margin total (4px on each side) so 100% of the page is visible, nothing clipped.
+  // On desktop: center with comfortable width (capped at 880px scaled by zoom), maintaining aspect ratio.
   const isMobile = containerWidth > 0 && containerWidth < 640;
-  const baseTargetWidth = isMobile
-    ? Math.max(containerWidth - 16, 260) // fill mobile width with 8px margin each side
-    : Math.min(Math.floor(pageDimensions.width * zoom * 1.35), Math.max(containerWidth - 48, 400));
+  const availableContentWidth = containerWidth > 0
+    ? (isMobile ? Math.max(containerWidth - 8, 200) : containerWidth - 48)
+    : 360;
 
-  const displayWidth = Math.min(baseTargetWidth, containerWidth > 0 ? containerWidth - 12 : 860);
+  const baseDesktopWidth = Math.min(
+    Math.floor(pageDimensions.width * zoom * 1.35),
+    availableContentWidth,
+    880
+  );
+
+  const displayWidth = isMobile
+    ? availableContentWidth
+    : Math.max(baseDesktopWidth, 320);
+
   const aspectRatio = pageDimensions.height / (pageDimensions.width || 1);
   const displayHeight = Math.floor(displayWidth * aspectRatio);
 
@@ -159,19 +169,20 @@ const PageRenderItem: React.FC<PageRenderItemProps> = React.memo(({ pageNumber, 
       ref={containerRef}
       id={`pdf-page-${pageNumber}`}
       data-page-number={pageNumber}
-      className="relative mx-auto my-2 sm:my-4 bg-white shadow-xl rounded-sm transition-all duration-150 flex flex-col items-center justify-center border border-gray-300/40"
+      className="relative mx-auto my-1.5 sm:my-4 bg-white shadow-xl rounded-sm transition-all duration-150 flex flex-col items-center justify-center border border-gray-300/40"
       style={{
         width: `${displayWidth}px`,
         maxWidth: '100%',
-        minHeight: `${Math.min(displayHeight, 400)}px`,
+        minHeight: `${Math.min(displayHeight, 350)}px`,
       }}
     >
       <canvas
         ref={canvasRef}
         className={`w-full h-auto block ${isRendered ? 'opacity-100' : 'opacity-0'} transition-opacity duration-200`}
         style={{
-          width: `${displayWidth}px`,
-          height: `${displayHeight}px`,
+          width: '100%',
+          height: 'auto',
+          aspectRatio: `${pageDimensions.width} / ${pageDimensions.height}`,
           maxWidth: '100%',
         }}
       />
@@ -232,14 +243,17 @@ export const PdfReader: React.FC<PdfReaderProps> = ({ book }) => {
       resizeObserver.observe(el);
     } else {
       window.addEventListener('resize', updateWidth);
+      window.addEventListener('orientationchange', updateWidth);
     }
+
+    window.addEventListener('orientationchange', updateWidth);
 
     return () => {
       if (resizeObserver) {
         resizeObserver.disconnect();
-      } else {
-        window.removeEventListener('resize', updateWidth);
       }
+      window.removeEventListener('resize', updateWidth);
+      window.removeEventListener('orientationchange', updateWidth);
     };
   }, []);
 
@@ -368,32 +382,32 @@ export const PdfReader: React.FC<PdfReaderProps> = ({ book }) => {
   return (
     <div className="fixed inset-0 z-50 bg-[#1e2736] flex flex-col text-white font-bengali">
       {/* Top Header & Continuous Reader Toolbar */}
-      <header className="h-14 bg-[#111827] border-b border-gray-800 px-3 sm:px-4 flex items-center justify-between shrink-0 z-20 shadow-md">
-        <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+      <header className="h-12 sm:h-14 bg-[#111827] border-b border-gray-800 px-2 sm:px-4 flex items-center justify-between shrink-0 z-20 shadow-md">
+        <div className="flex items-center gap-1.5 sm:gap-3 min-w-0">
           <button
             onClick={() => navigate(-1)}
             title="ফিরে যান"
-            className="p-1.5 rounded-lg hover:bg-gray-800 text-gray-300 hover:text-white transition shrink-0"
+            className="p-1 sm:p-1.5 rounded-lg hover:bg-gray-800 text-gray-300 hover:text-white transition shrink-0"
           >
-            <ArrowLeft className="w-5 h-5" />
+            <ArrowLeft className="w-4 h-4 sm:w-5 sm:h-5" />
           </button>
-          <div className="flex items-center gap-2 min-w-0">
-            <img src="/assets/logo.webp" alt="লোগো" className="w-6 h-6 object-contain shrink-0" />
-            <h1 className="text-xs sm:text-sm font-semibold text-gray-200 truncate max-w-[140px] sm:max-w-md">
+          <div className="flex items-center gap-1.5 min-w-0">
+            <img src="/assets/logo.webp" alt="লোগো" className="w-5 h-5 sm:w-6 sm:h-6 object-contain shrink-0" />
+            <h1 className="text-xs sm:text-sm font-semibold text-gray-200 truncate max-w-[110px] xs:max-w-[140px] sm:max-w-md">
               {book.title}
             </h1>
           </div>
         </div>
 
         {/* Page Position Counter (Scroll Indicator) */}
-        <div className="flex items-center gap-1 sm:gap-2 text-xs">
-          <span className="font-mono bg-gray-800/90 text-gray-200 px-2 sm:px-3 py-1 rounded text-[11px] sm:text-xs font-bold border border-gray-700/60">
+        <div className="flex items-center gap-1 sm:gap-2 text-xs shrink-0">
+          <span className="font-mono bg-gray-800/90 text-gray-200 px-1.5 sm:px-3 py-0.5 sm:py-1 rounded text-[10px] sm:text-xs font-bold border border-gray-700/60">
             পৃষ্ঠা {toBengaliNumber(currentPage)} / {toBengaliNumber(totalPages)}
           </span>
         </div>
 
         {/* Action Controls */}
-        <div className="flex items-center gap-1 sm:gap-1.5">
+        <div className="flex items-center gap-0.5 sm:gap-1.5 shrink-0">
           <button
             onClick={() => setShowThumbnails(!showThumbnails)}
             title="সূচিপত্র ও পৃষ্ঠাসমূহ"
@@ -505,7 +519,7 @@ export const PdfReader: React.FC<PdfReaderProps> = ({ book }) => {
         <main
           ref={scrollContainerRef}
           onScroll={handleScroll}
-          className="flex-1 overflow-y-auto overflow-x-hidden p-2 sm:p-6 bg-[#2B3544] flex flex-col items-center"
+          className="flex-1 overflow-y-auto overflow-x-hidden p-1 sm:p-4 md:p-6 bg-[#2B3544] flex flex-col items-center"
         >
           {loading && (
             <div className="text-center text-gray-300 my-auto py-20">
