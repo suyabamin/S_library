@@ -18,7 +18,7 @@ export const HistoryListingPage: React.FC = () => {
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
       {/* Banner */}
-      <div className="bg-gradient-to-r from-[#032C20] via-[#054331] to-[#1E3A8A] text-white rounded-2xl p-6 sm:p-10 shadow-xl relative overflow-hidden">
+      <div className="bg-gradient-to-r from-[#0d2a45] via-[#0a3d6b] to-[#1E3A8A] text-white rounded-2xl p-6 sm:p-10 shadow-xl relative overflow-hidden">
         <div className="max-w-3xl space-y-3 relative z-10">
           <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-xs font-semibold text-cyan-200">
             <History className="w-3.5 h-3.5" /> আলোকোজ্জ্বল স্মৃতি ও গৌরবময় ইতিহাস

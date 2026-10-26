@@ -11,7 +11,7 @@ export const SiteFooter: React.FC = () => {
           <div className="lg:col-span-2 space-y-4">
             <div className="flex items-center gap-3">
               <div className="w-10 h-10 rounded-lg flex items-center justify-center p-0.5">
-                <img src="/assets/logo.svg" alt="শিবির লাইব্রেরি লোগো" className="w-full h-full object-contain" />
+                <img src="/assets/logo.webp" alt="শিবির লাইব্রেরি, UIU থানা" className="w-full h-full object-contain" />
               </div>
               <div>
                 <h3 className="font-bold text-lg text-brand-text">

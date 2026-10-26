@@ -43,7 +43,7 @@ export const RegisterPage: React.FC = () => {
       <div className="max-w-md w-full bg-white rounded-card shadow-xl border border-brand-border p-8 space-y-6">
         <div className="text-center space-y-2">
           <div className="w-14 h-14 mx-auto flex items-center justify-center p-1">
-            <img src="/assets/logo.svg" alt="শিবির লাইব্রেরি লোগো" className="w-full h-full object-contain" />
+            <img src="/assets/logo.webp" alt="শিবির লাইব্রেরি লোগো" className="w-full h-full object-contain" />
           </div>
           <h2 className="text-2xl font-bold text-brand-text">
             নতুন একাউন্ট নিবন্ধন

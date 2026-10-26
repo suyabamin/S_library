@@ -72,7 +72,7 @@ export const BookDetailsPage: React.FC = () => {
         <div className="grid grid-cols-1 md:grid-cols-12 gap-8">
           {/* Cover Column */}
           <div className="md:col-span-4 lg:col-span-3 flex flex-col items-center">
-            <div className="w-full max-w-[240px] aspect-[3/4] rounded-xl overflow-hidden shadow-lg border border-brand-border bg-emerald-950/10">
+            <div className="w-full max-w-[240px] aspect-[3/4] rounded-xl overflow-hidden shadow-lg border border-brand-border bg-primary-soft/40">
               {book.coverImage ? (
                 <img
                   src={book.coverImage}
@@ -100,7 +100,7 @@ export const BookDetailsPage: React.FC = () => {
           {/* Details Column */}
           <div className="md:col-span-8 lg:col-span-9 space-y-5">
             <div>
-              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200 mb-2">
+              <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-soft text-primary text-xs font-bold border border-primary/20 mb-2">
                 <Layers className="w-3.5 h-3.5" /> {book.categoryName || 'সিলেবাস'}
               </div>
               <h1 className="text-2xl sm:text-3xl font-extrabold text-brand-text">
@@ -136,12 +136,12 @@ export const BookDetailsPage: React.FC = () => {
             </div>
 
             {/* Physical Availability Notice */}
-            <div className="p-4 rounded-xl bg-emerald-50/60 border border-emerald-200/80 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+            <div className="p-4 rounded-xl bg-primary-soft/60 border border-primary/20 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
               <div>
-                <h4 className="font-bold text-sm text-emerald-950 flex items-center gap-2">
-                  <BookMarked className="w-4 h-4 text-emerald-700" />
+                <h4 className="font-bold text-sm text-[#123047] flex items-center gap-2">
+                  <BookMarked className="w-4 h-4 text-primary" />
                   <span>ফিজিক্যাল হার্ড কপি স্টক:</span>
-                  <span className="text-emerald-700 bg-white px-2.5 py-0.5 rounded-full border border-emerald-200 text-xs">
+                  <span className="text-primary bg-white px-2.5 py-0.5 rounded-full border border-primary/20 text-xs font-semibold">
                     {(book.availablePhysicalCopies ?? 0) > 0
                       ? `${toBengaliNumber(book.availablePhysicalCopies)} টি কপি উপলব্ধ`
                       : 'বর্তমানে স্টকে নেই'}

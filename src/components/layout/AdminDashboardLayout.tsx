@@ -49,37 +49,37 @@ export const AdminDashboardLayout: React.FC<{ children: React.ReactNode }> = ({ 
   return (
     <div className="min-h-screen bg-brand-bg">
       {/* Admin Top Navigation Bar */}
-      <header className="bg-emerald-950 text-white border-b border-emerald-900 sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
-          <div className="flex items-center gap-3">
-            <Link to="/" className="flex items-center gap-2 group">
-              <img src="/assets/logo.svg" alt="লোগো" className="w-8 h-8 object-contain" />
-              <div className="flex flex-col">
-                <span className="font-bold text-sm text-emerald-100 group-hover:text-white transition">
+      <header className="bg-[#123047] text-white border-b border-[#0d2338] sticky top-0 z-40">
+        <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8 h-14 sm:h-16 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 min-w-0">
+            <Link to="/" className="flex items-center gap-2 group shrink-0">
+              <img src="/assets/logo.webp" alt="শিবির লাইব্রেরি, UIU থানা" className="w-8 h-8 object-contain" />
+              <div className="flex flex-col min-w-0">
+                <span className="font-bold text-xs sm:text-sm text-blue-100 group-hover:text-white transition truncate">
                   শিবির লাইব্রেরি অ্যাডমিন
                 </span>
-                <span className="text-[10px] text-emerald-400 font-semibold tracking-wider">
+                <span className="text-[10px] text-blue-300 font-semibold tracking-wider hidden sm:block">
                   UIU থানা শাখা
                 </span>
               </div>
             </Link>
           </div>
 
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 shrink-0">
             <Link
               to="/"
-              className="text-xs text-emerald-300 hover:text-white flex items-center gap-1 px-3 py-1.5 rounded-lg bg-emerald-900/60 border border-emerald-800 transition"
+              className="text-xs text-blue-300 hover:text-white flex items-center gap-1 px-2 sm:px-3 py-1.5 rounded-lg bg-white/10 border border-white/20 transition whitespace-nowrap"
             >
               <ArrowLeft className="w-3.5 h-3.5" /> মূল সাইট
             </Link>
 
-            <div className="flex items-center gap-2 pl-3 border-l border-emerald-900">
-              <div className="w-8 h-8 rounded-full bg-emerald-800 text-emerald-200 flex items-center justify-center font-bold text-xs">
+            <div className="flex items-center gap-2 pl-2 sm:pl-3 border-l border-white/20">
+              <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary/80 text-white flex items-center justify-center font-bold text-xs shrink-0">
                 {user?.displayName ? user.displayName.slice(0, 1) : 'A'}
               </div>
-              <div className="hidden sm:block text-left">
-                <p className="text-xs font-bold text-white">{user?.displayName || 'এডমিন'}</p>
-                <p className="text-[10px] text-emerald-400">লাইব্রেরি দায়িত্বশীল</p>
+              <div className="hidden sm:block text-left min-w-0">
+                <p className="text-xs font-bold text-white truncate">{user?.displayName || 'এডমিন'}</p>
+                <p className="text-[10px] text-blue-300">লাইব্রেরি দায়িত্বশীল</p>
               </div>
             </div>
           </div>

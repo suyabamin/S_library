@@ -13,7 +13,7 @@ export const BookCard: React.FC<BookCardProps> = ({ book, showBorrowAction = fal
   return (
     <div className="group bg-white rounded-card border border-brand-border overflow-hidden card-shadow card-shadow-hover flex flex-col h-full">
       {/* Book Cover Image Container */}
-      <div className="relative aspect-[3/4] bg-emerald-950/10 overflow-hidden flex items-center justify-center">
+      <div className="relative aspect-[3/4] bg-primary-soft/40 overflow-hidden flex items-center justify-center">
         {book.coverImage ? (
           <img
             src={book.coverImage}
@@ -29,7 +29,7 @@ export const BookCard: React.FC<BookCardProps> = ({ book, showBorrowAction = fal
         )}
 
         {/* Category Pill Tag */}
-        <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-emerald-900/80 text-white backdrop-blur-sm">
+        <span className="absolute top-2.5 left-2.5 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-[#123047]/80 text-white backdrop-blur-sm">
           {book.categoryName || 'সিলেবাস'}
         </span>
 
@@ -38,7 +38,7 @@ export const BookCard: React.FC<BookCardProps> = ({ book, showBorrowAction = fal
           <span
             className={`absolute top-2.5 right-2.5 px-2 py-0.5 rounded-full text-[11px] font-bold backdrop-blur-sm ${
               (book.availablePhysicalCopies ?? 0) > 0
-                ? 'bg-emerald-600/90 text-white'
+                ? 'bg-primary/95 text-white'
                 : 'bg-rose-600/90 text-white'
             }`}
           >
@@ -88,7 +88,7 @@ export const BookCard: React.FC<BookCardProps> = ({ book, showBorrowAction = fal
           {showBorrowAction ? (
             <Link
               to={`/borrow/${book.id}`}
-              className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold text-emerald-800 bg-emerald-50 hover:bg-emerald-100 border border-emerald-200 transition text-center"
+              className="flex items-center justify-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-bold text-primary bg-primary-soft hover:bg-primary-soft/80 border border-primary/20 transition text-center"
             >
               <BookMarked className="w-3.5 h-3.5" /> ধার নিন
             </Link>

@@ -38,18 +38,18 @@ export const HomePage: React.FC = () => {
   return (
     <div className="space-y-12 pb-16">
       {/* Hero / Banner Section matching Reference Image */}
-      <section className="relative overflow-hidden bg-gradient-to-r from-[#032C20] via-[#054331] to-[#087F5B] text-white py-16 sm:py-24 px-4 sm:px-6 lg:px-8 border-b-4 border-emerald-400">
+      <section className="relative overflow-hidden bg-gradient-to-r from-[#0d2a45] via-[#0a3d6b] to-[#00A8DC] text-white py-16 sm:py-24 px-4 sm:px-6 lg:px-8 border-b-4 border-primary">
         {/* Background Texture & Aesthetic Overlay */}
         <div
           className="absolute inset-0 opacity-15 bg-cover bg-center pointer-events-none mix-blend-overlay"
           style={{ backgroundImage: "url('/assets/banner-shelf.png')" }}
         />
-        <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-emerald-500/10 rounded-full blur-3xl pointer-events-none" />
+        <div className="absolute -right-20 -bottom-20 w-96 h-96 bg-primary/20 rounded-full blur-3xl pointer-events-none" />
 
         <div className="max-w-5xl mx-auto relative z-10 text-center space-y-6">
           {/* Badge */}
-          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold text-emerald-200">
-            <Shield className="w-3.5 h-3.5 text-emerald-300" />
+          <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md border border-white/20 text-xs font-semibold text-blue-200">
+            <Shield className="w-3.5 h-3.5 text-blue-300" />
             <EditableText contentKey="hero_badge" defaultText="বাংলাদেশ ইসলামী ছাত্রশিবির • UIU থানা শাখা" />
           </div>
 
@@ -58,13 +58,13 @@ export const HomePage: React.FC = () => {
             <h1 className="text-3xl sm:text-5xl md:text-6xl font-extrabold tracking-tight text-white drop-shadow-md">
               <EditableText contentKey="hero_title" defaultText="শিবির লাইব্রেরি, UIU থানা" />
             </h1>
-            <p className="text-lg sm:text-2xl font-bold text-emerald-200 tracking-wider">
+            <p className="text-lg sm:text-2xl font-bold text-blue-200 tracking-wider">
               <EditableText contentKey="hero_tagline" defaultText="শহিদি কাফেলা" />
             </p>
           </div>
 
           {/* Slogan Quote from Reference */}
-          <p className="text-base sm:text-xl font-medium text-emerald-100 max-w-2xl mx-auto italic drop-shadow-sm">
+          <p className="text-base sm:text-xl font-medium text-blue-100 max-w-2xl mx-auto italic drop-shadow-sm">
             <EditableText contentKey="hero_quote" defaultText="“জ্ঞান হোক সংগ্রামের শক্তি, বই হোক পরিবর্তনের হাতিয়ার”" />
           </p>
 
@@ -76,7 +76,7 @@ export const HomePage: React.FC = () => {
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="বইয়ের নাম, লেখক অথবা বিষয় লিখে খুঁজুন..."
-                className="w-full pl-6 pr-28 py-3.5 sm:py-4 rounded-full bg-white text-gray-900 placeholder-gray-500 text-sm sm:text-base focus:outline-none focus:ring-4 focus:ring-emerald-400/40"
+                className="w-full pl-6 pr-28 py-3.5 sm:py-4 rounded-full bg-white text-gray-900 placeholder-gray-500 text-sm sm:text-base focus:outline-none focus:ring-4 focus:ring-primary/40"
               />
               <button
                 type="submit"
@@ -120,18 +120,18 @@ export const HomePage: React.FC = () => {
           {/* Card 1: অনলাইন লাইব্রেরি */}
           <Link
             to="/books"
-            className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#065A40] to-[#04402D] p-6 sm:p-8 text-white shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
+            className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0c2e4e] to-[#084373] p-6 sm:p-8 text-white shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
           >
             <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
-              <BookOpen className="w-7 h-7 text-emerald-300" />
+              <BookOpen className="w-7 h-7 text-cyan-300" />
             </div>
             <h3 className="text-xl sm:text-2xl font-bold mb-2">
               <EditableText contentKey="card1_title" defaultText="অনলাইন লাইব্রেরি" />
             </h3>
-            <p className="text-emerald-100 text-sm leading-relaxed mb-6">
+            <p className="text-blue-100 text-sm leading-relaxed mb-6">
               <EditableText contentKey="card1_desc" defaultText="বই পড়ুন, জ্ঞান অর্জন করুন এবং নির্ধারিত বইসমূহের পিডিএফ সরাসরি ডাউনলোড করুন।" multiline />
             </p>
-            <span className="inline-flex items-center gap-2 text-xs font-bold text-emerald-300 group-hover:text-white transition">
+            <span className="inline-flex items-center gap-2 text-xs font-bold text-cyan-300 group-hover:text-white transition">
               লাইব্রেরি প্রবেশ করুন <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </span>
           </Link>
@@ -139,18 +139,18 @@ export const HomePage: React.FC = () => {
           {/* Card 2: হার্ড কপি ধার করুন (Prominent) */}
           <Link
             to="/hard-copy"
-            className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0D5940] to-[#087F5B] p-6 sm:p-8 text-white shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 border-2 border-emerald-400/30"
+            className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#0f3c66] to-[#00A8DC] p-6 sm:p-8 text-white shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1 border-2 border-primary/30"
           >
-            <div className="w-14 h-14 rounded-2xl bg-emerald-400/20 backdrop-blur-md flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
+            <div className="w-14 h-14 rounded-2xl bg-primary/20 backdrop-blur-md flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
               <BookMarked className="w-7 h-7 text-white" />
             </div>
             <h3 className="text-xl sm:text-2xl font-bold mb-2">
               <EditableText contentKey="card2_title" defaultText="হার্ড কপি ধার করুন" />
             </h3>
-            <p className="text-emerald-100 text-sm leading-relaxed mb-6">
+            <p className="text-blue-100 text-sm leading-relaxed mb-6">
               <EditableText contentKey="card2_desc" defaultText="আপনার পছন্দের সিলেবাস ও ইসলামিক বই সরাসরি ক্যাম্পাসে অথবা থানার বাসা থেকে সংগ্রহ করুন।" multiline />
             </p>
-            <span className="inline-flex items-center gap-2 text-xs font-bold text-emerald-200 group-hover:text-white transition">
+            <span className="inline-flex items-center gap-2 text-xs font-bold text-blue-100 group-hover:text-white transition">
               বইয়ের তালিকা ও আবেদন <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
             </span>
           </Link>
@@ -158,7 +158,7 @@ export const HomePage: React.FC = () => {
           {/* Card 3: সংগঠনের ইতিহাস (Prominent) */}
           <Link
             to="/history"
-            className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#123E32] to-[#1E3A8A] p-6 sm:p-8 text-white shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
+            className="group relative overflow-hidden rounded-2xl bg-gradient-to-br from-[#123047] to-[#1E3A8A] p-6 sm:p-8 text-white shadow-lg hover:shadow-2xl transition-all duration-300 hover:-translate-y-1"
           >
             <div className="w-14 h-14 rounded-2xl bg-white/10 backdrop-blur-md flex items-center justify-center mb-5 group-hover:scale-110 transition-transform">
               <History className="w-7 h-7 text-cyan-300" />
@@ -238,7 +238,7 @@ export const HomePage: React.FC = () => {
           <div className="bg-white rounded-2xl border border-brand-border p-6 sm:p-8 card-shadow overflow-hidden">
             <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
               <div className="lg:col-span-7 space-y-4">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-50 text-emerald-800 text-xs font-bold border border-emerald-200">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-primary-soft text-primary font-bold text-xs border border-primary/20">
                   <History className="w-3.5 h-3.5" /> সংগঠনের সোনালী অধ্যায় • {latestHistory.year}
                 </div>
                 <h3 className="text-2xl sm:text-3xl font-bold text-brand-text">

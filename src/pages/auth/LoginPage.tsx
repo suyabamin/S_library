@@ -53,7 +53,7 @@ export const LoginPage: React.FC = () => {
         {/* Brand Header matching Reference */}
         <div className="text-center space-y-2">
           <div className="w-14 h-14 mx-auto flex items-center justify-center p-1">
-            <img src="/assets/logo.svg" alt="শিবির লাইব্রেরি লোগো" className="w-full h-full object-contain" />
+            <img src="/assets/logo.webp" alt="শিবির লাইব্রেরি, UIU থানা" className="w-full h-full object-contain" />
           </div>
           <h2 className="text-2xl font-bold text-brand-text">
             শিবির লাইব্রেরি, <span className="text-primary">UIU থানা</span>

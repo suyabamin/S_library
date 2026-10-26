@@ -8,7 +8,7 @@ export const AboutPage: React.FC = () => {
       <div className="bg-white rounded-card border border-brand-border p-6 sm:p-10 card-shadow space-y-6">
         <div className="text-center space-y-3 pb-6 border-b border-brand-border">
           <div className="w-16 h-16 mx-auto flex items-center justify-center p-1">
-            <img src="/assets/logo.svg" alt="শিবির লাইব্রেরি লোগো" className="w-full h-full object-contain" />
+            <img src="/assets/logo.webp" alt="শিবির লাইব্রেরি লোগো" className="w-full h-full object-contain" />
           </div>
           <h1 className="text-2xl sm:text-3xl font-extrabold text-brand-text">
             <EditableText contentKey="about_title" defaultText="শিবির লাইব্রেরি, UIU থানা" />

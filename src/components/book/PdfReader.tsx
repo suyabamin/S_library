@@ -138,7 +138,7 @@ export const PdfReader: React.FC<PdfReaderProps> = ({ book }) => {
             <ArrowLeft className="w-5 h-5" />
           </button>
           <div className="flex items-center gap-2">
-            <img src="/assets/logo.svg" alt="লোগো" className="w-6 h-6 object-contain" />
+            <img src="/assets/logo.webp" alt="লোগো" className="w-6 h-6 object-contain" />
             <h1 className="text-sm font-semibold text-gray-200 truncate max-w-[200px] sm:max-w-md">
               {book.title}
             </h1>

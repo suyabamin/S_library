@@ -1,7 +1,6 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import {
-  BookOpen,
   Bell,
   User as UserIcon,
   LogOut,
@@ -11,8 +10,6 @@ import {
   BookMarked,
   History,
   LayoutDashboard,
-  MessageSquare,
-  FileText,
   ChevronDown,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -32,6 +29,7 @@ export const SiteHeader: React.FC = () => {
   const handleLogout = async () => {
     await logout();
     setUserMenuOpen(false);
+    setMobileMenuOpen(false);
     navigate('/');
   };
 
@@ -39,8 +37,8 @@ export const SiteHeader: React.FC = () => {
     { label: 'হোম', path: '/' },
     { label: 'ক্যাটালগ', path: '/books' },
     { label: 'সংগঠনের ইতিহাস', path: '/history' },
-    { label: 'হার্ড কপি ধার করুন', path: '/hard-copy' },
-    { label: 'আমাদের সম্পর্কে', path: '/about' },
+    { label: 'হার্ড কপি', path: '/hard-copy' },
+    { label: 'সম্পর্কে', path: '/about' },
   ];
 
   const isActive = (path: string) => {
@@ -49,31 +47,44 @@ export const SiteHeader: React.FC = () => {
   };
 
   return (
-    <header className="sticky top-0 z-40 bg-white/95 backdrop-blur-md border-b border-brand-border shadow-sm">
-      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-        <div className="flex items-center justify-between h-16 md:h-20">
-          {/* Logo & Brand Identity */}
-          <Link to="/" className="flex items-center gap-3 group focus:outline-none">
-            <div className="w-11 h-11 md:w-13 md:h-13 rounded-lg overflow-hidden flex items-center justify-center p-0.5 transition-transform group-hover:scale-105">
-              <img src="/assets/logo.svg" alt="শিবির লাইব্রেরি লোগো" className="w-full h-full object-contain" />
-            </div>
-            <div className="flex flex-col">
-              <span className="text-lg md:text-xl font-bold text-brand-text tracking-tight group-hover:text-primary transition-colors">
+    <header className="sticky top-0 z-40 bg-white/97 backdrop-blur-md border-b border-brand-border shadow-sm">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 lg:px-8">
+        {/* Main header row — fixed height, no overflow */}
+        <div className="flex items-center h-14 sm:h-16 gap-2 sm:gap-3">
+
+          {/* Logo & Brand — shrinks on mobile */}
+          <Link
+            to="/"
+            className="flex items-center gap-2 sm:gap-2.5 group focus:outline-none shrink-0 mr-auto lg:mr-0"
+            style={{ minWidth: 0 }}
+          >
+            <img
+              src="/assets/logo.webp"
+              alt="শিবির লাইব্রেরি, UIU থানা"
+              className="w-9 h-9 sm:w-11 sm:h-11 object-contain shrink-0 rounded"
+              loading="eager"
+            />
+            <div className="hidden xs:flex flex-col min-w-0">
+              <span className="text-sm sm:text-base md:text-lg font-bold text-brand-text tracking-tight group-hover:text-primary transition-colors leading-tight truncate">
                 শিবির লাইব্রেরি, <span className="text-primary">UIU থানা</span>
               </span>
-              <span className="text-xs font-medium text-primary tracking-widest uppercase">
+              <span className="text-[10px] sm:text-xs font-semibold text-primary tracking-widest hidden sm:block">
                 শহিদি কাফেলা
               </span>
             </div>
+            {/* On very small screens, show just the short title next to logo */}
+            <span className="xs:hidden text-sm font-bold text-brand-text truncate max-w-[140px] group-hover:text-primary transition-colors">
+              শিবির লাইব্রেরি
+            </span>
           </Link>
 
-          {/* Desktop Navigation */}
-          <nav className="hidden lg:flex items-center space-x-1 xl:space-x-2">
+          {/* Desktop Navigation — only on large screens */}
+          <nav className="hidden lg:flex items-center gap-0.5 xl:gap-1 ml-4">
             {navLinks.map((item) => (
               <Link
                 key={item.path}
                 to={item.path}
-                className={`px-3.5 py-2 rounded-lg text-sm font-medium transition-all ${
+                className={`px-2.5 xl:px-3.5 py-2 rounded-lg text-sm font-medium transition-all whitespace-nowrap ${
                   isActive(item.path)
                     ? 'text-primary bg-primary-soft font-semibold'
                     : 'text-brand-muted hover:text-brand-text hover:bg-gray-100/70'
@@ -84,19 +95,19 @@ export const SiteHeader: React.FC = () => {
             ))}
           </nav>
 
-          {/* Action / Account Section */}
-          <div className="flex items-center gap-3">
-            {/* Notification Bell */}
+          {/* Right side actions */}
+          <div className="flex items-center gap-1 sm:gap-2 ml-auto lg:ml-4 shrink-0">
+            {/* Notification Bell — only for authenticated users */}
             {isAuthenticated && (
               <div className="relative">
                 <button
-                  onClick={() => setNotificationsOpen(!notificationsOpen)}
+                  onClick={() => { setNotificationsOpen(!notificationsOpen); setUserMenuOpen(false); }}
                   aria-label="বিজ্ঞপ্তি"
-                  className="p-2.5 rounded-full text-brand-muted hover:text-primary hover:bg-primary-soft transition relative"
+                  className="w-9 h-9 sm:w-10 sm:h-10 flex items-center justify-center rounded-full text-brand-muted hover:text-primary hover:bg-primary-soft transition relative"
                 >
                   <Bell className="w-5 h-5" />
                   {unreadNotificationCount > 0 && (
-                    <span className="absolute top-1 right-1 w-4 h-4 bg-rose-600 text-white rounded-full text-[10px] font-bold flex items-center justify-center">
+                    <span className="absolute top-0.5 right-0.5 w-4 h-4 bg-accent text-white rounded-full text-[9px] font-bold flex items-center justify-center">
                       {toBengaliNumber(unreadNotificationCount)}
                     </span>
                   )}
@@ -107,25 +118,25 @@ export const SiteHeader: React.FC = () => {
               </div>
             )}
 
-            {/* Authenticated User Menu */}
+            {/* User Account Menu */}
             {isAuthenticated ? (
               <div className="relative">
                 <button
-                  onClick={() => setUserMenuOpen(!userMenuOpen)}
-                  className="flex items-center gap-2.5 p-1.5 pl-3 rounded-full border border-brand-border hover:border-primary/50 transition bg-white"
+                  onClick={() => { setUserMenuOpen(!userMenuOpen); setNotificationsOpen(false); }}
+                  className="flex items-center gap-1.5 sm:gap-2 p-1 sm:p-1.5 pl-2 sm:pl-2.5 rounded-full border border-brand-border hover:border-primary/50 transition bg-white"
                 >
-                  <div className="w-8 h-8 rounded-full bg-primary-soft text-primary flex items-center justify-center font-bold text-sm">
+                  <div className="w-7 h-7 sm:w-8 sm:h-8 rounded-full bg-primary-soft text-primary flex items-center justify-center font-bold text-xs sm:text-sm shrink-0">
                     {user?.displayName ? user.displayName.slice(0, 1) : 'U'}
                   </div>
-                  <span className="hidden sm:inline-block text-sm font-semibold text-brand-text max-w-[120px] truncate">
+                  <span className="hidden md:inline-block text-xs sm:text-sm font-semibold text-brand-text max-w-[90px] xl:max-w-[120px] truncate">
                     {user?.displayName}
                   </span>
-                  <ChevronDown className="w-4 h-4 text-brand-muted" />
+                  <ChevronDown className="w-3.5 h-3.5 text-brand-muted shrink-0" />
                 </button>
 
                 {userMenuOpen && (
                   <div
-                    className="absolute right-0 mt-2 w-56 bg-white rounded-card shadow-lg border border-brand-border py-2 z-50 animate-in fade-in zoom-in-95 duration-100"
+                    className="absolute right-0 mt-2 w-52 sm:w-56 bg-white rounded-card shadow-lg border border-brand-border py-2 z-50"
                     onClick={() => setUserMenuOpen(false)}
                   >
                     <div className="px-4 py-2 border-b border-brand-border">
@@ -138,41 +149,23 @@ export const SiteHeader: React.FC = () => {
                       )}
                     </div>
 
-                    <Link
-                      to="/dashboard"
-                      className="flex items-center gap-2.5 px-4 py-2 text-sm text-brand-text hover:bg-primary-soft hover:text-primary transition"
-                    >
-                      <LayoutDashboard className="w-4 h-4 text-brand-muted" /> ড্যাশবোর্ড
+                    <Link to="/dashboard" className="flex items-center gap-2.5 px-4 py-2 text-sm text-brand-text hover:bg-primary-soft hover:text-primary transition">
+                      <LayoutDashboard className="w-4 h-4 text-brand-muted shrink-0" /> ড্যাশবোর্ড
                     </Link>
-
-                    <Link
-                      to="/profile"
-                      className="flex items-center gap-2.5 px-4 py-2 text-sm text-brand-text hover:bg-primary-soft hover:text-primary transition"
-                    >
-                      <UserIcon className="w-4 h-4 text-brand-muted" /> আমার প্রোফাইল
+                    <Link to="/profile" className="flex items-center gap-2.5 px-4 py-2 text-sm text-brand-text hover:bg-primary-soft hover:text-primary transition">
+                      <UserIcon className="w-4 h-4 text-brand-muted shrink-0" /> আমার প্রোফাইল
                     </Link>
-
-                    <Link
-                      to="/my-requests"
-                      className="flex items-center gap-2.5 px-4 py-2 text-sm text-brand-text hover:bg-primary-soft hover:text-primary transition"
-                    >
-                      <BookMarked className="w-4 h-4 text-brand-muted" /> আমার ধারসমূহ
+                    <Link to="/my-requests" className="flex items-center gap-2.5 px-4 py-2 text-sm text-brand-text hover:bg-primary-soft hover:text-primary transition">
+                      <BookMarked className="w-4 h-4 text-brand-muted shrink-0" /> আমার ধারসমূহ
                     </Link>
-
-                    <Link
-                      to="/my-archive"
-                      className="flex items-center gap-2.5 px-4 py-2 text-sm text-brand-text hover:bg-primary-soft hover:text-primary transition"
-                    >
-                      <History className="w-4 h-4 text-brand-muted" /> আর্কাইভ
+                    <Link to="/my-archive" className="flex items-center gap-2.5 px-4 py-2 text-sm text-brand-text hover:bg-primary-soft hover:text-primary transition">
+                      <History className="w-4 h-4 text-brand-muted shrink-0" /> আর্কাইভ
                     </Link>
 
                     {isAdmin && (
                       <div className="border-t border-brand-border my-1">
-                        <Link
-                          to="/admin"
-                          className="flex items-center gap-2.5 px-4 py-2 text-sm text-primary font-bold hover:bg-primary-soft transition"
-                        >
-                          <ShieldCheck className="w-4 h-4 text-primary" /> অ্যাডমিন প্যানেল
+                        <Link to="/admin" className="flex items-center gap-2.5 px-4 py-2 text-sm text-primary font-bold hover:bg-primary-soft transition">
+                          <ShieldCheck className="w-4 h-4 text-primary shrink-0" /> অ্যাডমিন প্যানেল
                         </Link>
                       </div>
                     )}
@@ -182,36 +175,36 @@ export const SiteHeader: React.FC = () => {
                         onClick={handleLogout}
                         className="w-full flex items-center gap-2.5 px-4 py-2 text-sm text-rose-600 hover:bg-rose-50 transition"
                       >
-                        <LogOut className="w-4 h-4 text-rose-500" /> লগআউট
+                        <LogOut className="w-4 h-4 text-rose-500 shrink-0" /> লগআউট
                       </button>
                     </div>
                   </div>
                 )}
               </div>
             ) : (
-              <div className="flex items-center gap-2">
+              <div className="flex items-center gap-1 sm:gap-2">
                 <Link
                   to="/login"
-                  className="px-4 py-2 rounded-lg text-sm font-semibold text-primary hover:bg-primary-soft transition"
+                  className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold text-primary hover:bg-primary-soft transition whitespace-nowrap"
                 >
                   লগইন
                 </Link>
                 <Link
                   to="/register"
-                  className="px-4 py-2 rounded-lg text-sm font-semibold text-white bg-primary hover:bg-primary-hover shadow-sm transition"
+                  className="px-2.5 sm:px-4 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm font-semibold text-white bg-primary hover:bg-primary-hover shadow-sm transition whitespace-nowrap"
                 >
                   সাইন আপ
                 </Link>
               </div>
             )}
 
-            {/* Mobile Hamburger Button */}
+            {/* Mobile Hamburger — only on < lg */}
             <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 rounded-lg text-brand-muted hover:text-brand-text hover:bg-gray-100 focus:outline-none"
-              aria-label="মেনু খুলুন"
+              onClick={() => { setMobileMenuOpen(!mobileMenuOpen); setUserMenuOpen(false); setNotificationsOpen(false); }}
+              className="lg:hidden w-9 h-9 flex items-center justify-center rounded-lg text-brand-muted hover:text-brand-text hover:bg-gray-100 focus:outline-none shrink-0"
+              aria-label={mobileMenuOpen ? 'মেনু বন্ধ করুন' : 'মেনু খুলুন'}
             >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {mobileMenuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
             </button>
           </div>
         </div>
@@ -219,59 +212,45 @@ export const SiteHeader: React.FC = () => {
 
       {/* Mobile Drawer Menu */}
       {mobileMenuOpen && (
-        <div className="lg:hidden bg-white border-b border-brand-border px-4 pt-2 pb-6 space-y-3">
-          <div className="space-y-1">
-            {navLinks.map((item) => (
-              <Link
-                key={item.path}
-                to={item.path}
-                onClick={() => setMobileMenuOpen(false)}
-                className={`block px-4 py-2.5 rounded-lg text-base font-medium ${
-                  isActive(item.path)
-                    ? 'text-primary bg-primary-soft font-semibold'
-                    : 'text-brand-text hover:bg-gray-50'
-                }`}
-              >
-                {item.label}
-              </Link>
-            ))}
-          </div>
+        <div className="lg:hidden bg-white border-b border-brand-border px-4 pt-2 pb-5 space-y-1 shadow-md">
+          {navLinks.map((item) => (
+            <Link
+              key={item.path}
+              to={item.path}
+              onClick={() => setMobileMenuOpen(false)}
+              className={`flex items-center px-4 py-2.5 rounded-lg text-sm font-medium ${
+                isActive(item.path)
+                  ? 'text-primary bg-primary-soft font-semibold'
+                  : 'text-brand-text hover:bg-gray-50'
+              }`}
+            >
+              {item.label}
+            </Link>
+          ))}
 
-          {/* Mobile Auth Links */}
+          {/* Mobile Auth Section */}
           {isAuthenticated ? (
-            <div className="pt-3 border-t border-brand-border space-y-1">
-              <Link
-                to="/dashboard"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-base font-medium text-brand-text hover:bg-gray-50"
-              >
-                <LayoutDashboard className="w-4 h-4 text-brand-muted" /> ড্যাশবোর্ড
+            <div className="pt-2 border-t border-brand-border space-y-1">
+              <Link to="/dashboard" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-sm font-medium text-brand-text hover:bg-gray-50">
+                <LayoutDashboard className="w-4 h-4 text-brand-muted shrink-0" /> ড্যাশবোর্ড
               </Link>
-              <Link
-                to="/profile"
-                onClick={() => setMobileMenuOpen(false)}
-                className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-base font-medium text-brand-text hover:bg-gray-50"
-              >
-                <UserIcon className="w-4 h-4 text-brand-muted" /> আমার প্রোফাইল
+              <Link to="/profile" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-sm font-medium text-brand-text hover:bg-gray-50">
+                <UserIcon className="w-4 h-4 text-brand-muted shrink-0" /> আমার প্রোফাইল
               </Link>
               {isAdmin && (
-                <Link
-                  to="/admin"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-base font-bold text-primary hover:bg-primary-soft"
-                >
-                  <ShieldCheck className="w-4 h-4 text-primary" /> অ্যাডমিন প্যানেল
+                <Link to="/admin" onClick={() => setMobileMenuOpen(false)} className="flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-sm font-bold text-primary hover:bg-primary-soft">
+                  <ShieldCheck className="w-4 h-4 text-primary shrink-0" /> অ্যাডমিন প্যানেল
                 </Link>
               )}
               <button
-                onClick={() => { handleLogout(); setMobileMenuOpen(false); }}
-                className="w-full flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-base font-medium text-rose-600 hover:bg-rose-50"
+                onClick={handleLogout}
+                className="w-full flex items-center gap-2.5 px-4 py-2.5 rounded-lg text-sm font-medium text-rose-600 hover:bg-rose-50"
               >
-                <LogOut className="w-4 h-4 text-rose-500" /> লগআউট
+                <LogOut className="w-4 h-4 text-rose-500 shrink-0" /> লগআউট
               </button>
             </div>
           ) : (
-            <div className="pt-3 border-t border-brand-border flex gap-3 px-4">
+            <div className="pt-2 border-t border-brand-border flex gap-3 px-4">
               <Link
                 to="/login"
                 onClick={() => setMobileMenuOpen(false)}

@@ -48,7 +48,7 @@ export const UserDashboardLayout: React.FC<{ children: React.ReactNode }> = ({ c
         <aside className="lg:col-span-1">
           <div className="bg-white rounded-card border border-brand-border p-4 card-shadow sticky top-24 space-y-4">
             {/* User Mini Profile */}
-            <div className="p-3 rounded-xl bg-primary-soft/50 border border-emerald-100 flex items-center gap-3">
+            <div className="p-3 rounded-xl bg-primary-soft/50 border border-primary/20 flex items-center gap-3">
               <div className="w-12 h-12 rounded-full bg-primary text-white font-bold flex items-center justify-center text-lg shadow-sm">
                 {user?.displayName ? user.displayName.slice(0, 1) : 'U'}
               </div>

@@ -77,14 +77,14 @@ export const AdminDashboardPage: React.FC = () => {
           <div className="bg-white rounded-card border border-brand-border p-4 card-shadow">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-brand-muted">ধার অনুমোদন</span>
-              <div className="w-8 h-8 rounded-lg bg-emerald-50 text-primary flex items-center justify-center">
+              <div className="w-8 h-8 rounded-lg bg-primary-soft text-primary flex items-center justify-center">
                 <CheckCircle2 className="w-4 h-4" />
               </div>
             </div>
             <p className="text-2xl font-bold text-primary mt-2 font-mono">
               {toBengaliNumber(approvedRequests.length)}
             </p>
-            <span className="text-[11px] text-emerald-700">অনুমোদিত আবেদন</span>
+            <span className="text-[11px] text-primary">অনুমোদিত আবেদন</span>
           </div>
 
           {/* Card 4: রিটার্ন বাকি */}
@@ -112,7 +112,7 @@ export const AdminDashboardPage: React.FC = () => {
               </h3>
               <p className="text-xs text-brand-muted">বিগত মাসের রিডিং ও ঋণ বিশ্লেষণ</p>
             </div>
-            <span className="text-xs bg-emerald-50 text-primary font-bold px-3 py-1 rounded-full">
+            <span className="text-xs bg-primary-soft text-primary font-bold px-3 py-1 rounded-full">
               চলতি সেশন
             </span>
           </div>
@@ -122,8 +122,8 @@ export const AdminDashboardPage: React.FC = () => {
             <svg className="w-full h-full overflow-visible" viewBox="0 0 500 150">
               <defs>
                 <linearGradient id="chartGrad" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="#087F5B" stopOpacity="0.3" />
-                  <stop offset="100%" stopColor="#087F5B" stopOpacity="0.0" />
+                  <stop offset="0%" stopColor="#00A8DC" stopOpacity="0.3" />
+                  <stop offset="100%" stopColor="#00A8DC" stopOpacity="0.0" />
                 </linearGradient>
               </defs>
               {/* Grid Lines */}
@@ -139,14 +139,14 @@ export const AdminDashboardPage: React.FC = () => {
               <path
                 d="M 10 120 Q 80 110, 150 60 T 300 40 T 420 80 T 490 20"
                 fill="none"
-                stroke="#087F5B"
+                stroke="#00A8DC"
                 strokeWidth="3.5"
                 strokeLinecap="round"
               />
               {/* Data Points */}
-              <circle cx="150" cy="60" r="4.5" fill="#087F5B" stroke="#FFFFFF" strokeWidth="2" />
-              <circle cx="300" cy="40" r="4.5" fill="#087F5B" stroke="#FFFFFF" strokeWidth="2" />
-              <circle cx="490" cy="20" r="4.5" fill="#087F5B" stroke="#FFFFFF" strokeWidth="2" />
+              <circle cx="150" cy="60" r="4.5" fill="#00A8DC" stroke="#FFFFFF" strokeWidth="2" />
+              <circle cx="300" cy="40" r="4.5" fill="#00A8DC" stroke="#FFFFFF" strokeWidth="2" />
+              <circle cx="490" cy="20" r="4.5" fill="#00A8DC" stroke="#FFFFFF" strokeWidth="2" />
             </svg>
             <div className="flex justify-between text-[11px] text-gray-400 pt-2 px-2">
               <span>জানুয়ারি</span>
