@@ -31,3 +31,4 @@ dist-ssr
 
 # System files
 Thumbs.db
+*.tsbuildinfo
