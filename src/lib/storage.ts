@@ -33,6 +33,34 @@ export class StorageService {
   }
 
   /**
+   * Resolve a PDF URL or objectKey to a CORS-safe URL suitable for PDF.js / canvas rendering.
+   * If the URL is hosted on Cloudflare R2 (.r2.dev or bucket domain), routes through /api/pdf-proxy
+   * to ensure full CORS, Range-request streaming, and standard PDF content-type headers.
+   */
+  resolvePdfStreamUrl(objectKeyOrUrl?: string): string {
+    if (!objectKeyOrUrl) return '';
+    const raw = objectKeyOrUrl.trim();
+
+    // If it's already pointing to local API proxy, return as is
+    if (raw.startsWith('/api/pdf-proxy')) {
+      return raw;
+    }
+
+    // If it's on R2 dev or custom domain, route via /api/pdf-proxy
+    if (raw.includes('.r2.dev') || raw.includes('.r2.cloudflarestorage.com')) {
+      return `/api/pdf-proxy?url=${encodeURIComponent(raw)}`;
+    }
+
+    // If it's a relative object key (e.g. pdfs/123-abc.pdf)
+    if (!raw.startsWith('http://') && !raw.startsWith('https://') && !raw.startsWith('data:')) {
+      return `/api/pdf-proxy?key=${encodeURIComponent(raw)}`;
+    }
+
+    // Direct external URL (e.g. raw.githubusercontent.com)
+    return raw;
+  }
+
+  /**
    * Request a short-lived presigned upload URL from the server-side API
    * or perform client-safe development simulation if server endpoint is offline.
    */
