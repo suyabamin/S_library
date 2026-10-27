@@ -15,6 +15,7 @@ interface AuthContextType {
   role: UserRole;
   isAuthenticated: boolean;
   isAdmin: boolean;
+  authLoading: boolean;
   login: (email: string, pass: string, role?: UserRole) => Promise<boolean>;
   register: (name: string, email: string, phone: string, pass: string, position?: UserPosition) => Promise<boolean>;
   logout: () => Promise<void>;
@@ -22,15 +23,17 @@ interface AuthContextType {
   switchDemoRole: (role: 'visitor' | 'user' | 'admin') => void;
 }
 
-export const isUserAdmin = (email?: string | null, role?: string): boolean => {
+/**
+ * Checks if a user is an administrator.
+ * Security notice: Email-substring matching (e.g. includes('admin')) is strictly forbidden
+ * to prevent privilege escalation. Only exact verified admin credentials or role === 'admin'
+ * are recognized.
+ */
+export const isUserAdmin = (emailOrRole?: string | null, role?: string): boolean => {
   if (role === 'admin') return true;
-  if (!email) return false;
-  const lower = email.trim().toLowerCase();
-  return (
-    lower.includes('admin') ||
-    lower.includes('suyabamin') ||
-    lower === 'suyabamins@gmail.com'
-  );
+  if (emailOrRole === 'admin') return true;
+  if (emailOrRole && emailOrRole.trim().toLowerCase() === 'suyabamins@gmail.com') return true;
+  return false;
 };
 
 const DEFAULT_DEMO_USER: UserProfile = {
@@ -63,29 +66,19 @@ const DEFAULT_DEMO_ADMIN: UserProfile = {
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const [user, setUser] = useState<UserProfile | null>(() => {
-    const saved = localStorage.getItem('shibir_library_user');
-    if (saved) {
-      try {
-        return JSON.parse(saved);
-      } catch {
-        return null;
-      }
-    }
-    return null;
-  });
-
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('shibir_library_user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('shibir_library_user');
-    }
-  }, [user]);
+  // Start with null — do not pre-load untrusted role from localStorage.
+  // Firebase onAuthStateChanged will populate user state authoritatively.
+  const [user, setUser] = useState<UserProfile | null>(null);
+  // authLoading is true until Firebase resolves the initial auth state.
+  // Route guards wait for this before making redirection decisions.
+  const [authLoading, setAuthLoading] = useState(true);
 
   // Synchronize with Firebase Auth and Firestore Database
   useEffect(() => {
-    if (!isFirebaseConfigured) return;
+    if (!isFirebaseConfigured) {
+      setAuthLoading(false);
+      return;
+    }
 
     const unsubscribe = onAuthStateChanged(auth, async (fbUser) => {
       if (fbUser) {
@@ -93,13 +86,23 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           const userDocRef = doc(db, 'users', fbUser.uid);
           const userDocSnap = await getDoc(userDocRef);
 
-          let isAdmin = isUserAdmin(fbUser.email);
+          // Admin status check:
+          // 1. Is in /admins/{uid} collection
+          // 2. OR user document role === 'admin'
+          // 3. OR exact owner email suyabamins@gmail.com
+          let resolvedIsAdmin = false;
+          const userEmail = fbUser.email?.trim().toLowerCase();
+
+          if (userEmail === 'suyabamins@gmail.com') {
+            resolvedIsAdmin = true;
+          }
+
           try {
             const adminDocRef = doc(db, 'admins', fbUser.uid);
             const adminDocSnap = await getDoc(adminDocRef);
             if (adminDocSnap.exists()) {
-              isAdmin = true;
-            } else if (isAdmin) {
+              resolvedIsAdmin = true;
+            } else if (resolvedIsAdmin) {
               setDoc(adminDocRef, {
                 uid: fbUser.uid,
                 email: fbUser.email,
@@ -113,7 +116,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
           if (userDocSnap.exists()) {
             const data = userDocSnap.data() as UserProfile;
-            const finalIsAdmin = isAdmin || data.role === 'admin' || isUserAdmin(data.email);
+            const finalIsAdmin = resolvedIsAdmin || data.role === 'admin';
             const finalRole: UserRole = finalIsAdmin ? 'admin' : (data.role || 'user');
             setUser({
               ...data,
@@ -127,39 +130,31 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             }
           } else {
             // Document might not be created yet if just registered
-            setUser((prev) => {
-              const finalRole: UserRole = isAdmin ? 'admin' : (prev?.role || 'user');
-              return {
-                uid: fbUser.uid,
-                displayName: fbUser.displayName || prev?.displayName || 'ব্যবহারকারী',
-                email: fbUser.email || prev?.email || '',
-                photoURL: fbUser.photoURL || undefined,
-                role: finalRole,
-                status: 'active',
-                createdAt: prev?.createdAt || new Date().toISOString(),
-                updatedAt: new Date().toISOString(),
-              };
+            setUser({
+              uid: fbUser.uid,
+              displayName: fbUser.displayName || 'ব্যবহারকারী',
+              email: fbUser.email || '',
+              photoURL: fbUser.photoURL || undefined,
+              role: resolvedIsAdmin ? 'admin' : 'user',
+              status: 'active',
+              createdAt: new Date().toISOString(),
+              updatedAt: new Date().toISOString(),
             });
           }
         } catch (e) {
           console.warn('Error fetching Firestore user profile:', e);
+          setUser(null);
         }
       } else {
         setUser(null);
-        localStorage.removeItem('shibir_library_user');
       }
+      setAuthLoading(false);
     });
 
     return () => unsubscribe();
   }, []);
 
   const login = async (email: string, pass: string, requestedRole?: UserRole) => {
-    // If testing using the quick demo switcher/button
-    if (requestedRole === 'admin' && pass === 'admin123') {
-      setUser(DEFAULT_DEMO_ADMIN);
-      return true;
-    }
-
     if (isFirebaseConfigured) {
       try {
         const userCredential = await signInWithEmailAndPassword(auth, email, pass);
@@ -169,13 +164,18 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         const userDocRef = doc(db, 'users', fbUser.uid);
         const userDocSnap = await getDoc(userDocRef);
 
-        let isAdmin = isUserAdmin(fbUser.email);
+        let resolvedIsAdmin = false;
+        const lowerEmail = (fbUser.email || email).trim().toLowerCase();
+        if (lowerEmail === 'suyabamins@gmail.com') {
+          resolvedIsAdmin = true;
+        }
+
         try {
           const adminDocRef = doc(db, 'admins', fbUser.uid);
           const adminDocSnap = await getDoc(adminDocRef);
           if (adminDocSnap.exists()) {
-            isAdmin = true;
-          } else if (isAdmin) {
+            resolvedIsAdmin = true;
+          } else if (resolvedIsAdmin) {
             setDoc(adminDocRef, {
               uid: fbUser.uid,
               email: fbUser.email,
@@ -191,7 +191,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
         if (userDocSnap.exists()) {
           const data = userDocSnap.data() as UserProfile;
-          const finalIsAdmin = isAdmin || data.role === 'admin' || isUserAdmin(data.email);
+          const finalIsAdmin = resolvedIsAdmin || data.role === 'admin';
           profileData = {
             ...data,
             uid: fbUser.uid,
@@ -206,7 +206,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
             uid: fbUser.uid,
             displayName: fbUser.displayName || email.split('@')[0],
             email: fbUser.email || email,
-            role: isAdmin ? 'admin' : 'user',
+            role: resolvedIsAdmin ? 'admin' : 'user',
             status: 'active',
             createdAt: new Date().toISOString(),
             updatedAt: new Date().toISOString(),
@@ -228,9 +228,9 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
           err.code === 'auth/wrong-password' ||
           err.code === 'auth/invalid-credential'
         ) {
-          msg = 'ইমেইল অথবা পাসওয়ার্ড সঠিক নয়।';
+          msg = 'ইমেইল অথবা পাসওয়ার্ড সঠিক নয়।';
         } else if (err.code === 'auth/too-many-requests') {
-          msg = 'অতিরিক্ত ব্যর্থ চেষ্টার কারণে অ্যাকাউন্ট সাময়িকভাবে বন্ধ আছে। কিছুক্ষণ পর চেষ্টা করুন।';
+          msg = 'অতিরিক্ত ব্যর্থ চেষ্টার কারণে অ্যাকাউন্ট সাময়িকভাবে বন্ধ আছে। কিছুক্ষণ পর চেষ্টা করুন।';
         } else if (err.code === 'auth/invalid-email') {
           msg = 'সঠিক ইমেইল ঠিকানা প্রদান করুন।';
         } else if (err.message) {
@@ -239,8 +239,8 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         throw new Error(msg);
       }
     } else {
-      const isAdminEmail = isUserAdmin(email) || requestedRole === 'admin';
-      const loggedUser: UserProfile = isAdminEmail
+      // Offline fallback: ONLY grant admin if requestedRole is explicitly 'admin'
+      const loggedUser: UserProfile = requestedRole === 'admin'
         ? {
             ...DEFAULT_DEMO_ADMIN,
             email,
@@ -274,13 +274,14 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         await updateFbProfile(fbUser, { displayName: name });
 
         // 3. Create Document in Cloud Firestore (collection: users)
+        // Enforce: Never register as admin from client
         const newUser: UserProfile = {
           uid: fbUser.uid,
           displayName: name,
           email,
           phone,
           position,
-          role: 'user', // Enforce: Never register as admin from client
+          role: 'user',
           status: 'active',
           createdAt: new Date().toISOString(),
           updatedAt: new Date().toISOString(),
@@ -334,7 +335,6 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       }
     }
     setUser(null);
-    localStorage.removeItem('shibir_library_user');
   };
 
   const updateProfile = async (data: Partial<UserProfile>) => {
@@ -372,6 +372,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         role: user?.role || 'user',
         isAuthenticated: !!user,
         isAdmin: user?.role === 'admin',
+        authLoading,
         login,
         register,
         logout,

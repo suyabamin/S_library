@@ -45,19 +45,34 @@ import { AdminUsersPage } from './pages/admin/AdminUsersPage';
 import { AdminHistoryPage } from './pages/admin/AdminHistoryPage';
 import { AdminSettingsPage } from './pages/admin/AdminSettingsPage';
 
-// Scroll to top helper
+// Scroll to top helper (instant to eliminate mobile route-transition lag/flickering)
 const ScrollToTop = () => {
   const { pathname } = useLocation();
   useEffect(() => {
-    window.scrollTo(0, 0);
+    window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
   }, [pathname]);
   return null;
 };
 
+// Loading spinner fallback during initial auth resolution to prevent white flashes and race conditions
+const AuthLoadingSpinner: React.FC = () => (
+  <div className="flex-1 flex items-center justify-center min-h-[60vh] py-12">
+    <div className="flex flex-col items-center gap-3">
+      <div className="w-10 h-10 border-3 border-primary/20 border-t-primary rounded-full animate-spin" />
+      <span className="text-xs text-brand-muted font-medium">যাচাই করা হচ্ছে...</span>
+    </div>
+  </div>
+);
+
 // Route Guard for Authenticated Users
 const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, authLoading } = useAuth();
   const location = useLocation();
+
+  if (authLoading) {
+    return <AuthLoadingSpinner />;
+  }
+
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }
@@ -66,8 +81,13 @@ const ProtectedRoute: React.FC<{ children: React.ReactNode }> = ({ children }) =
 
 // Route Guard for Admin Users
 const AdminRoute: React.FC<{ children: React.ReactNode }> = ({ children }) => {
-  const { isAuthenticated, isAdmin } = useAuth();
+  const { isAuthenticated, isAdmin, authLoading } = useAuth();
   const location = useLocation();
+
+  if (authLoading) {
+    return <AuthLoadingSpinner />;
+  }
+
   if (!isAuthenticated) {
     return <Navigate to="/login" state={{ from: location }} replace />;
   }

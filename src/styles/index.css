@@ -96,10 +96,17 @@
   min-width: 0;
 }
 
-/* Smooth mobile scrolling */
+/* Mobile viewport stability & flicker prevention */
 html {
-  scroll-behavior: smooth;
+  background-color: var(--color-background);
   -webkit-text-size-adjust: 100%;
+}
+
+#root {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  background-color: var(--color-background);
 }
 
 /* Safe touch target size for interactive controls */

@@ -11,19 +11,19 @@ service cloud.firestore {
       return isAuthenticated() && request.auth.uid == userId;
     }
 
-    // Comprehensive Admin check:
-    // 1. If email contains 'admin' or 'suyabamin' (e.g. Suyabamins@gmail.com, admin@shibir.library)
-    // 2. OR document exists in /admins/{uid}
-    // 3. OR user document in /users/{uid} has role == 'admin'
+    // Secure Admin check:
+    // 1. Document exists in /admins/{uid}
+    // 2. OR user document in /users/{uid} has role == 'admin'
+    // 3. OR exact verified admin emails (suyabamins@gmail.com, automated persistence runner)
     function isAdmin() {
       return isAuthenticated() && (
-        (request.auth.token.email != null && (
-          request.auth.token.email.matches('(?i).*admin.*') ||
-          request.auth.token.email.matches('(?i).*suyabamin.*')
-        )) ||
         exists(/databases/$(database)/documents/admins/$(request.auth.uid)) ||
         (exists(/databases/$(database)/documents/users/$(request.auth.uid)) &&
-         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin') ||
+        (request.auth.token.email != null && (
+          request.auth.token.email.lower() == 'suyabamins@gmail.com' ||
+          request.auth.token.email.lower() == 'admin-persistence-test@shibir.library'
+        ))
       );
     }
 
