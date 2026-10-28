@@ -2,18 +2,28 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { AdminDashboardLayout } from '../../components/layout/AdminDashboardLayout';
 import { useLibrary } from '../../context/LibraryContext';
+import { isValidUrl } from '../../lib/syllabusValidation';
 import {
   Upload,
   BookOpen,
   CheckCircle2,
   FileText,
+  Link2,
+  Globe,
+  Library,
+  AlertCircle,
 } from 'lucide-react';
+import { BookSourceType } from '../../types';
 
 export const AdminAddEditBookPage: React.FC = () => {
-  const { categories, addBook, updateBook, getBookById } = useLibrary();
+  const { categories, books, addBook, updateBook, getBookById } = useLibrary();
   const navigate = useNavigate();
   const { bookId } = useParams<{ bookId?: string }>();
   const isEdit = Boolean(bookId);
+
+  // Creation mode: 'upload' (default PDF upload) or 'url' (Add Book by URL)
+  const [entryMode, setEntryMode] = useState<'upload' | 'url'>('upload');
+  const [urlSubtype, setUrlSubtype] = useState<'external_page' | 'external_pdf' | 'internal_book'>('external_page');
 
   const [activeTab, setActiveTab] = useState<'add' | 'list'>('add');
 
@@ -27,6 +37,10 @@ export const AdminAddEditBookPage: React.FC = () => {
   const [totalCopies, setTotalCopies] = useState<number>(3);
   const [downloadAllowed, setDownloadAllowed] = useState(true);
   const [featured, setFeatured] = useState(false);
+
+  // URL Mode States
+  const [externalUrl, setExternalUrl] = useState('');
+  const [internalBookId, setInternalBookId] = useState('');
 
   // File Upload State
   const [coverPreview, setCoverPreview] = useState<string>('');
@@ -55,6 +69,22 @@ export const AdminAddEditBookPage: React.FC = () => {
         setFeatured(existing.featured ?? false);
         setCoverPreview(existing.coverImage || '');
         setPdfUrl(existing.pdfUrl || '');
+        setExternalUrl(existing.externalUrl || '');
+        setInternalBookId(existing.internalBookId || '');
+
+        if (existing.sourceType === 'external_page') {
+          setEntryMode('url');
+          setUrlSubtype('external_page');
+        } else if (existing.sourceType === 'external_pdf') {
+          setEntryMode('url');
+          setUrlSubtype('external_pdf');
+        } else if (existing.sourceType === 'internal_book') {
+          setEntryMode('url');
+          setUrlSubtype('internal_book');
+        } else {
+          setEntryMode('upload');
+        }
+
         if (existing.pdfUrl) {
           const parts = existing.pdfUrl.split('/');
           setPdfFileName(decodeURIComponent(parts[parts.length - 1] || 'সংরক্ষিত পিডিএফ'));
@@ -253,9 +283,51 @@ export const AdminAddEditBookPage: React.FC = () => {
       return;
     }
 
-    if (!pdfUrl || pdfUrl.startsWith('blob:') || pdfUrl.startsWith('data:')) {
-      alert('অনুগ্রহ করে একটি বৈধ পিডিএফ ফাইল আপলোড সম্পন্ন হওয়া নিশ্চিত করুন অথবা সরাসরি ক্লাউড লিংক প্রদান করুন।');
-      return;
+    let finalSourceType: BookSourceType = 'uploaded_pdf';
+    let finalPdfUrl = pdfUrl.trim();
+    let finalExternalUrl = externalUrl.trim();
+    let finalInternalBookId = internalBookId.trim();
+
+    if (entryMode === 'url') {
+      if (urlSubtype === 'external_page') {
+        finalSourceType = 'external_page';
+        if (!finalExternalUrl) {
+          alert('অনুগ্রহ করে বই বা পড়ার ওয়েব পেজের সরাসরি লিংক (URL) দিন।');
+          return;
+        }
+        if (!isValidUrl(finalExternalUrl)) {
+          alert('প্রদত্ত ওয়েব লিংকটি একটি সঠিক ও নিরাপদ URL (https://) হতে হবে।');
+          return;
+        }
+        finalPdfUrl = finalExternalUrl; // Safe fallback so any reader view still gets the link
+      } else if (urlSubtype === 'external_pdf') {
+        finalSourceType = 'external_pdf';
+        if (!finalPdfUrl) {
+          alert('অনুগ্রহ করে সরাসরি পিডিএফ ফাইলের লিংক (URL) দিন।');
+          return;
+        }
+        if (!isValidUrl(finalPdfUrl)) {
+          alert('প্রদত্ত পিডিএফ লিংকটি একটি সঠিক ও নিরাপদ URL (https://) হতে হবে।');
+          return;
+        }
+      } else if (urlSubtype === 'internal_book') {
+        finalSourceType = 'internal_book';
+        if (!finalInternalBookId) {
+          alert('অনুগ্রহ করে লাইব্রেরির বিদ্যমান বই নির্বাচন করুন।');
+          return;
+        }
+        const targetBook = books.find((b) => b.id === finalInternalBookId);
+        if (targetBook) {
+          finalPdfUrl = targetBook.pdfUrl || '';
+        }
+      }
+    } else {
+      // PDF Upload mode
+      finalSourceType = 'uploaded_pdf';
+      if (!finalPdfUrl || finalPdfUrl.startsWith('blob:') || finalPdfUrl.startsWith('data:')) {
+        alert('অনুগ্রহ করে একটি বৈধ পিডিএফ ফাইল আপলোড সম্পন্ন হওয়া নিশ্চিত করুন অথবা সরাসরি ক্লাউড লিংক প্রদান করুন।');
+        return;
+      }
     }
 
     if (coverPreview && coverPreview.startsWith('blob:')) {
@@ -276,14 +348,17 @@ export const AdminAddEditBookPage: React.FC = () => {
         publicationInfo: publicationInfo.trim() || undefined,
         language,
         coverImage: coverPreview.trim() || undefined,
-        pdfUrl: pdfUrl.trim(),
+        pdfUrl: finalPdfUrl,
+        sourceType: finalSourceType,
+        externalUrl: finalExternalUrl || undefined,
+        internalBookId: finalInternalBookId || undefined,
         downloadAllowed,
         featured,
         status: 'published' as const,
         isPhysicalAvailable: totalCopies > 0,
         totalPhysicalCopies: totalCopies,
         availablePhysicalCopies: totalCopies,
-        fileSizeMb: 4.5,
+        fileSizeMb: finalSourceType === 'uploaded_pdf' ? 4.5 : undefined,
         pageCount: 320,
       };
 
@@ -336,6 +411,46 @@ export const AdminAddEditBookPage: React.FC = () => {
             <span>{isEdit ? 'বইটির তথ্য সফলভাবে আপডেট হয়েছে!' : 'নতুন বইটি লাইব্রেরিতে সফলভাবে যুক্ত হয়েছে!'} ক্যাটালগে স্থানান্তর করা হচ্ছে...</span>
           </div>
         )}
+
+        {/* Entry Mode Selector: Upload PDF vs Add Book by URL */}
+        <div className="bg-brand-bg/50 p-3.5 rounded-xl border border-brand-border space-y-2">
+          <label className="block text-xs font-bold text-brand-text">
+            বই যুক্ত করার মাধ্যম নির্বাচন করুন:
+          </label>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <button
+              type="button"
+              onClick={() => setEntryMode('upload')}
+              className={`flex items-center gap-2.5 p-3 rounded-lg border text-left transition ${
+                entryMode === 'upload'
+                  ? 'border-primary bg-primary-soft text-primary font-bold shadow-sm'
+                  : 'border-brand-border bg-white text-brand-text hover:bg-gray-50'
+              }`}
+            >
+              <Upload className="w-5 h-5 shrink-0" />
+              <div>
+                <p className="text-xs font-bold">পিডিএফ ফাইল আপলোড (PDF Upload)</p>
+                <p className="text-[11px] text-brand-muted font-normal">ডিভাইস থেকে ক্লাউড স্টোরেজে ফাইল আপলোড করুন</p>
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => setEntryMode('url')}
+              className={`flex items-center gap-2.5 p-3 rounded-lg border text-left transition ${
+                entryMode === 'url'
+                  ? 'border-primary bg-primary-soft text-primary font-bold shadow-sm'
+                  : 'border-brand-border bg-white text-brand-text hover:bg-gray-50'
+              }`}
+            >
+              <Link2 className="w-5 h-5 shrink-0" />
+              <div>
+                <p className="text-xs font-bold">লিংক / URL দিয়ে বই যোগ (Add by URL)</p>
+                <p className="text-[11px] text-brand-muted font-normal">কোনো ফাইল আপলোড ছাড়া অনলাইন পেজ বা সরাসরি পিডিএফ লিংক দিন</p>
+              </div>
+            </button>
+          </div>
+        </div>
 
         {/* Add/Edit Book Form */}
         <form onSubmit={handleSubmit} className="space-y-6 text-sm">
@@ -440,30 +555,202 @@ export const AdminAddEditBookPage: React.FC = () => {
             />
           </div>
 
-          {/* Upload Drag & Drop Boxes */}
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
-            {/* Cover Upload Box */}
-            <div className="space-y-2">
-              <label className="block text-xs font-bold text-brand-text">
-                কভার ছবি
-              </label>
-              <div className="border-2 border-dashed border-emerald-300 rounded-2xl p-4 text-center hover:bg-emerald-50/30 transition flex flex-col items-center justify-center min-h-[160px] relative">
-                {uploadingCover ? (
-                  <div className="space-y-2">
-                    <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-                    <p className="text-xs font-bold text-primary">কভার ছবি আপলোড হচ্ছে...</p>
+          {/* Upload or URL Resource Configuration */}
+          {entryMode === 'url' ? (
+            <div className="bg-sky-50/50 border border-sky-200 rounded-2xl p-5 space-y-4">
+              <div className="flex items-center gap-2 text-sky-900">
+                <Link2 className="w-5 h-5 text-sky-600" />
+                <h3 className="font-bold text-sm">URL ভিত্তিক বইয়ের উৎস কনফিগার করুন</h3>
+              </div>
+
+              {/* Sub-type radio choices */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+                <label className={`flex items-start gap-2 p-3 rounded-xl border cursor-pointer text-xs transition ${
+                  urlSubtype === 'external_page'
+                    ? 'bg-white border-primary text-primary font-bold shadow-xs'
+                    : 'bg-white/60 border-brand-border text-brand-text hover:bg-white'
+                }`}>
+                  <input
+                    type="radio"
+                    name="urlSubtype"
+                    value="external_page"
+                    checked={urlSubtype === 'external_page'}
+                    onChange={() => setUrlSubtype('external_page')}
+                    className="mt-0.5 text-primary focus:ring-primary"
+                  />
+                  <div>
+                    <span className="block font-bold">অনলাইন পড়ার ওয়েব লিংক</span>
+                    <span className="text-[11px] text-brand-muted font-normal">যেমন: icsbook.info বা অন্য যেকোনো বই পড়ার পেজ</span>
                   </div>
-                ) : coverPreview ? (
-                  <div className="flex items-center gap-3">
+                </label>
+
+                <label className={`flex items-start gap-2 p-3 rounded-xl border cursor-pointer text-xs transition ${
+                  urlSubtype === 'external_pdf'
+                    ? 'bg-white border-primary text-primary font-bold shadow-xs'
+                    : 'bg-white/60 border-brand-border text-brand-text hover:bg-white'
+                }`}>
+                  <input
+                    type="radio"
+                    name="urlSubtype"
+                    value="external_pdf"
+                    checked={urlSubtype === 'external_pdf'}
+                    onChange={() => setUrlSubtype('external_pdf')}
+                    className="mt-0.5 text-primary focus:ring-primary"
+                  />
+                  <div>
+                    <span className="block font-bold">সরাসরি এক্সটার্নাল PDF URL</span>
+                    <span className="text-[11px] text-brand-muted font-normal">ক্লাউড বা বাহ্যিক হোস্টে সংরক্ষিত সরাসরি .pdf লিংক</span>
+                  </div>
+                </label>
+
+                <label className={`flex items-start gap-2 p-3 rounded-xl border cursor-pointer text-xs transition ${
+                  urlSubtype === 'internal_book'
+                    ? 'bg-white border-primary text-primary font-bold shadow-xs'
+                    : 'bg-white/60 border-brand-border text-brand-text hover:bg-white'
+                }`}>
+                  <input
+                    type="radio"
+                    name="urlSubtype"
+                    value="internal_book"
+                    checked={urlSubtype === 'internal_book'}
+                    onChange={() => setUrlSubtype('internal_book')}
+                    className="mt-0.5 text-primary focus:ring-primary"
+                  />
+                  <div>
+                    <span className="block font-bold">লাইব্রেরির সংরক্ষিত বই</span>
+                    <span className="text-[11px] text-brand-muted font-normal">বিদ্যমান কোনো বইয়ের সাথে সরাসরি লিংক করুন</span>
+                  </div>
+                </label>
+              </div>
+
+              {/* Dynamic inputs based on subtype */}
+              {urlSubtype === 'external_page' && (
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-brand-text">
+                    অনলাইন পড়ার ওয়েব পেজের লিংক (URL) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="url"
+                    value={externalUrl}
+                    onChange={(e) => setExternalUrl(e.target.value)}
+                    placeholder="https://www.icsbook.info/..."
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-brand-border focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm bg-white"
+                  />
+                  <p className="text-[11px] text-brand-muted">
+                    পাঠকরা এই বইটিতে ক্লিক করলে সরাসরি এই মূল ওয়েবসাইটে বই পড়ার পেজটি নতুন ট্যাবে নিরাপদভাবে উন্মুক্ত হবে।
+                  </p>
+                </div>
+              )}
+
+              {urlSubtype === 'external_pdf' && (
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-brand-text">
+                    সরাসরি পিডিএফ ফাইলের লিংক (PDF URL) <span className="text-rose-500">*</span>
+                  </label>
+                  <input
+                    type="url"
+                    value={pdfUrl}
+                    onChange={(e) => setPdfUrl(e.target.value)}
+                    placeholder="https://example.com/books/sample.pdf"
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-brand-border focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm bg-white"
+                  />
+                  <p className="text-[11px] text-brand-muted">
+                    সিঙ্গেল ক্লিক পিডিএফ ভিউয়ারে লোড হবে, রিমোট সার্ভারের CORS অনুমতি সাপেক্ষে সরাসরি পড়া যাবে।
+                  </p>
+                </div>
+              )}
+
+              {urlSubtype === 'internal_book' && (
+                <div className="space-y-1">
+                  <label className="block text-xs font-bold text-brand-text">
+                    বিদ্যমান বই সিলেক্ট করুন <span className="text-rose-500">*</span>
+                  </label>
+                  <select
+                    value={internalBookId}
+                    onChange={(e) => {
+                      const id = e.target.value;
+                      setInternalBookId(id);
+                      const chosen = books.find((b) => b.id === id);
+                      if (chosen && !title) setTitle(chosen.title);
+                      if (chosen && !author) setAuthor(chosen.author || '');
+                      if (chosen?.coverImage && !coverPreview) setCoverPreview(chosen.coverImage);
+                    }}
+                    className="w-full px-3.5 py-2.5 rounded-lg border border-brand-border focus:ring-2 focus:ring-primary/20 focus:border-primary text-sm bg-white"
+                  >
+                    <option value="">-- লাইব্রেরি থেকে একটি বই বেছে নিন --</option>
+                    {books.map((b) => (
+                      <option key={b.id} value={b.id}>
+                        {b.title} — {b.author || 'অজানা লেখক'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              {/* Cover Image Input for URL Mode */}
+              <div className="pt-2 border-t border-sky-100">
+                <label className="block text-xs font-bold text-brand-text mb-1">
+                  কভার ছবি (ঐচ্ছিক URL)
+                </label>
+                <div className="flex gap-3 items-center">
+                  {coverPreview && (
                     <img
                       src={coverPreview}
                       alt="কভার প্রিভিউ"
-                      className="w-16 h-22 object-cover rounded shadow border"
+                      className="w-12 h-16 object-cover rounded shadow border shrink-0"
                     />
-                    <div className="text-left text-xs">
-                      <p className="font-bold text-brand-text">কভার সিলেক্ট করা হয়েছে</p>
-                      <label className="text-primary hover:underline font-bold cursor-pointer mt-1 block">
-                        ছবি পরিবর্তন করুন
+                  )}
+                  <input
+                    type="url"
+                    value={coverPreview}
+                    onChange={(e) => setCoverPreview(e.target.value)}
+                    placeholder="https://example.com/cover.jpg (বা খালি রাখুন)"
+                    className="flex-1 px-3 py-2 rounded-lg border border-brand-border text-xs focus:ring-1 focus:ring-primary bg-white"
+                  />
+                </div>
+              </div>
+            </div>
+          ) : (
+            /* Upload Drag & Drop Boxes (Preserved existing flow) */
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+              {/* Cover Upload Box */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-brand-text">
+                  কভার ছবি
+                </label>
+                <div className="border-2 border-dashed border-emerald-300 rounded-2xl p-4 text-center hover:bg-emerald-50/30 transition flex flex-col items-center justify-center min-h-[160px] relative">
+                  {uploadingCover ? (
+                    <div className="space-y-2">
+                      <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+                      <p className="text-xs font-bold text-primary">কভার ছবি আপলোড হচ্ছে...</p>
+                    </div>
+                  ) : coverPreview ? (
+                    <div className="flex items-center gap-3">
+                      <img
+                        src={coverPreview}
+                        alt="কভার প্রিভিউ"
+                        className="w-16 h-22 object-cover rounded shadow border"
+                      />
+                      <div className="text-left text-xs">
+                        <p className="font-bold text-brand-text">কভার সিলেক্ট করা হয়েছে</p>
+                        <label className="text-primary hover:underline font-bold cursor-pointer mt-1 block">
+                          ছবি পরিবর্তন করুন
+                          <input
+                            type="file"
+                            accept="image/*"
+                            onChange={handleCoverUpload}
+                            className="hidden"
+                          />
+                        </label>
+                      </div>
+                    </div>
+                  ) : (
+                    <>
+                      <Upload className="w-8 h-8 text-primary mb-2" />
+                      <p className="text-xs font-bold text-brand-text">ছবি আপলোড করুন</p>
+                      <p className="text-[11px] text-brand-muted">Max 50MB (JPG, PNG)</p>
+                      <label className="mt-2 px-3 py-1 bg-white border border-brand-border rounded text-xs font-semibold cursor-pointer hover:bg-gray-50">
+                        ফাইল বেছে নিন
                         <input
                           type="file"
                           accept="image/*"
@@ -471,79 +758,64 @@ export const AdminAddEditBookPage: React.FC = () => {
                           className="hidden"
                         />
                       </label>
-                    </div>
-                  </div>
-                ) : (
-                  <>
-                    <Upload className="w-8 h-8 text-primary mb-2" />
-                    <p className="text-xs font-bold text-brand-text">ছবি আপলোড করুন</p>
-                    <p className="text-[11px] text-brand-muted">Max 50MB (JPG, PNG)</p>
-                    <label className="mt-2 px-3 py-1 bg-white border border-brand-border rounded text-xs font-semibold cursor-pointer hover:bg-gray-50">
-                      ফাইল বেছে নিন
-                      <input
-                        type="file"
-                        accept="image/*"
-                        onChange={handleCoverUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  </>
-                )}
+                    </>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={coverPreview}
+                  onChange={(e) => setCoverPreview(e.target.value)}
+                  placeholder="অথবা কভার ছবির সরাসরি URL দিন"
+                  className="w-full px-3 py-1.5 rounded-lg border border-brand-border text-xs focus:ring-1 focus:ring-primary"
+                />
               </div>
-              <input
-                type="text"
-                value={coverPreview}
-                onChange={(e) => setCoverPreview(e.target.value)}
-                placeholder="অথবা কভার ছবির সরাসরি URL দিন"
-                className="w-full px-3 py-1.5 rounded-lg border border-brand-border text-xs focus:ring-1 focus:ring-primary"
-              />
-            </div>
 
-            {/* PDF Upload Box */}
-            <div className="space-y-2">
-              <label className="block text-xs font-bold text-brand-text">
-                PDF ফাইল <span className="text-rose-500">*</span>
-              </label>
-              <div className="border-2 border-dashed border-emerald-300 rounded-2xl p-4 text-center hover:bg-emerald-50/30 transition flex flex-col items-center justify-center min-h-[160px] relative">
-                {uploadingPdf ? (
-                  <div className="space-y-2 w-full max-w-[200px]">
-                    <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
-                    <p className="text-xs font-bold text-primary">পিডিএফ আপলোড হচ্ছে ({uploadProgress}%)...</p>
-                    <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
-                      <div
-                        className="bg-primary h-full transition-all duration-300"
-                        style={{ width: `${uploadProgress}%` }}
-                      />
+              {/* PDF Upload Box */}
+              <div className="space-y-2">
+                <label className="block text-xs font-bold text-brand-text">
+                  PDF ফাইল <span className="text-rose-500">*</span>
+                </label>
+                <div className="border-2 border-dashed border-emerald-300 rounded-2xl p-4 text-center hover:bg-emerald-50/30 transition flex flex-col items-center justify-center min-h-[160px] relative">
+                  {uploadingPdf ? (
+                    <div className="space-y-2 w-full max-w-[200px]">
+                      <div className="w-8 h-8 border-3 border-primary border-t-transparent rounded-full animate-spin mx-auto" />
+                      <p className="text-xs font-bold text-primary">পিডিএফ আপলোড হচ্ছে ({uploadProgress}%)...</p>
+                      <div className="w-full bg-gray-200 h-1.5 rounded-full overflow-hidden">
+                        <div
+                          className="bg-primary h-full transition-all duration-300"
+                          style={{ width: `${uploadProgress}%` }}
+                        />
+                      </div>
                     </div>
-                  </div>
-                ) : (
-                  <>
-                    <FileText className="w-8 h-8 text-primary mb-2" />
-                    <p className="text-xs font-bold text-brand-text">
-                      {pdfFileName ? pdfFileName : 'পিডিএফ আপলোড করুন'}
-                    </p>
-                    <p className="text-[11px] text-brand-muted">Max 50MB</p>
-                    <label className="mt-2 px-3 py-1 bg-white border border-brand-border rounded text-xs font-semibold cursor-pointer hover:bg-gray-50">
-                      ফাইল সিলেক্ট করুন
-                      <input
-                        type="file"
-                        accept="application/pdf"
-                        onChange={handlePdfUpload}
-                        className="hidden"
-                      />
-                    </label>
-                  </>
-                )}
+                  ) : (
+                    <>
+                      <FileText className="w-8 h-8 text-primary mb-2" />
+                      <p className="text-xs font-bold text-brand-text">
+                        {pdfFileName ? pdfFileName : 'পিডিএফ আপলোড করুন'}
+                      </p>
+                      <p className="text-[11px] text-brand-muted">Max 50MB</p>
+                      <label className="mt-2 px-3 py-1 bg-white border border-brand-border rounded text-xs font-semibold cursor-pointer hover:bg-gray-50">
+                        ফাইল সিলেক্ট করুন
+                        <input
+                          type="file"
+                          accept="application/pdf"
+                          onChange={handlePdfUpload}
+                          className="hidden"
+                        />
+                      </label>
+                    </>
+                  )}
+                </div>
+                <input
+                  type="text"
+                  value={pdfUrl}
+                  onChange={(e) => setPdfUrl(e.target.value)}
+                  placeholder="অথবা সরাসরি PDF / Cloudflare R2 লিংক দিন"
+                  className="w-full px-3 py-1.5 rounded-lg border border-brand-border text-xs focus:ring-1 focus:ring-primary"
+                />
               </div>
-              <input
-                type="text"
-                value={pdfUrl}
-                onChange={(e) => setPdfUrl(e.target.value)}
-                placeholder="অথবা সরাসরি PDF / Cloudflare R2 লিংক দিন"
-                className="w-full px-3 py-1.5 rounded-lg border border-brand-border text-xs focus:ring-1 focus:ring-primary"
-              />
             </div>
-          </div>
+          )}
 
           {/* Checkboxes */}
           <div className="flex flex-wrap items-center gap-6 pt-2">

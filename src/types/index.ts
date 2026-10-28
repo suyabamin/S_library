@@ -34,6 +34,8 @@ export interface Category {
   bookCount?: number;
 }
 
+export type BookSourceType = 'uploaded_pdf' | 'external_pdf' | 'external_page' | 'internal_book';
+
 export interface Book {
   id: string;
   title: string;
@@ -46,6 +48,9 @@ export interface Book {
   pdfUrl?: string; // Direct/signed URL or external
   pdfObjectKey?: string;
   externalPdfUrl?: string;
+  sourceType?: BookSourceType;
+  externalUrl?: string;
+  internalBookId?: string;
   fileSizeMb?: number;
   pageCount?: number;
   downloadAllowed: boolean;

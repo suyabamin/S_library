@@ -12,6 +12,7 @@ import {
   Layers,
   ArrowLeft,
   CheckCircle,
+  ExternalLink,
 } from 'lucide-react';
 import { useLibrary } from '../context/LibraryContext';
 import { useAuth } from '../context/AuthContext';
@@ -163,29 +164,51 @@ export const BookDetailsPage: React.FC = () => {
 
             {/* Action Buttons for Digital Reading */}
             <div className="flex flex-wrap items-center gap-3 pt-2">
-              <Link
-                to={`/reader/${book.id}`}
-                className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary-hover shadow-md transition"
-              >
-                <BookOpen className="w-4 h-4" />
-                <span>অনলাইনে পড়ুন</span>
-              </Link>
-
-              {book.downloadAllowed ? (
+              {book.sourceType === 'external_page' ? (
                 <a
-                  href={storageService.resolveUrl(book.pdfUrl) || '#'}
-                  download={`${book.title}.pdf`}
+                  href={book.externalUrl || book.pdfUrl}
                   target="_blank"
-                  rel="noreferrer"
-                  className="flex items-center gap-2 px-6 py-3 rounded-xl border border-brand-border bg-gray-50 hover:bg-gray-100 text-brand-text font-bold text-sm transition"
+                  rel="noopener noreferrer"
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary-hover shadow-md transition"
                 >
-                  <Download className="w-4 h-4 text-brand-muted" />
-                  <span>পিডিএফ ডাউনলোড</span>
+                  <ExternalLink className="w-4 h-4" />
+                  <span>ওয়েবসাইটে বইটি পড়ুন</span>
                 </a>
+              ) : book.sourceType === 'internal_book' && book.internalBookId ? (
+                <Link
+                  to={`/reader/${book.internalBookId}`}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary-hover shadow-md transition"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span>অনলাইনে পড়ুন</span>
+                </Link>
               ) : (
-                <span className="text-xs text-brand-muted bg-gray-100 px-3 py-2 rounded-lg">
-                  * এই বইটির ডাউনলোড সংরক্ষিত
-                </span>
+                <Link
+                  to={`/reader/${book.id}`}
+                  className="flex items-center gap-2 px-6 py-3 rounded-xl bg-primary text-white font-bold text-sm hover:bg-primary-hover shadow-md transition"
+                >
+                  <BookOpen className="w-4 h-4" />
+                  <span>অনলাইনে পড়ুন</span>
+                </Link>
+              )}
+
+              {book.sourceType !== 'external_page' && (
+                book.downloadAllowed ? (
+                  <a
+                    href={storageService.resolveUrl(book.pdfUrl) || '#'}
+                    download={`${book.title}.pdf`}
+                    target="_blank"
+                    rel="noreferrer"
+                    className="flex items-center gap-2 px-6 py-3 rounded-xl border border-brand-border bg-gray-50 hover:bg-gray-100 text-brand-text font-bold text-sm transition"
+                  >
+                    <Download className="w-4 h-4 text-brand-muted" />
+                    <span>পিডিএফ ডাউনলোড</span>
+                  </a>
+                ) : (
+                  <span className="text-xs text-brand-muted bg-gray-100 px-3 py-2 rounded-lg">
+                    * এই বইটির ডাউনলোড সংরক্ষিত
+                  </span>
+                )
               )}
             </div>
 

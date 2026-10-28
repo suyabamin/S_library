@@ -114,4 +114,67 @@ describe('bookValidation & Firestore Sanitization', () => {
     expect(result.sanitized).not.toHaveProperty('coverImage');
     expect(findUndefinedPaths(result.sanitized)).toEqual([]);
   });
+
+  describe('Add Book by URL validation', () => {
+    it('accepts external_page book with valid HTTPS URL and no PDF file required', () => {
+      const urlBook = {
+        title: 'অনলাইন পাঠ্যবই',
+        author: 'প্রফেসর আহমদ',
+        categoryId: 'higher-syllabus',
+        sourceType: 'external_page' as const,
+        externalUrl: 'https://www.icsbook.info/book/online-reading',
+      };
+
+      const result = validateAndCanonicalizeBook(urlBook, true);
+      expect(result.valid).toBe(true);
+      expect(result.errors).toHaveLength(0);
+      expect(result.sanitized.sourceType).toBe('external_page');
+      expect(result.sanitized.externalUrl).toBe('https://www.icsbook.info/book/online-reading');
+      expect(findUndefinedPaths(result.sanitized)).toEqual([]);
+    });
+
+    it('rejects external_page when URL is missing or invalid', () => {
+      const invalidUrlBook = {
+        title: 'ভুল লিংক বই',
+        author: 'লেখক',
+        categoryId: 'school-syllabus',
+        sourceType: 'external_page' as const,
+        externalUrl: 'javascript:alert(1)',
+      };
+
+      const result = validateAndCanonicalizeBook(invalidUrlBook, true);
+      expect(result.valid).toBe(false);
+      expect(result.errors.some((e) => e.includes('বৈধ ও নিরাপদ URL'))).toBe(true);
+    });
+
+    it('accepts external_pdf book with valid HTTPS PDF link', () => {
+      const externalPdfBook = {
+        title: 'রিমোট পিডিএফ বই',
+        author: 'লেখক ২',
+        categoryId: 'kormi-syllabus',
+        sourceType: 'external_pdf' as const,
+        pdfUrl: 'https://remote-server.org/doc.pdf',
+      };
+
+      const result = validateAndCanonicalizeBook(externalPdfBook, true);
+      expect(result.valid).toBe(true);
+      expect(result.sanitized.sourceType).toBe('external_pdf');
+      expect(result.sanitized.pdfUrl).toBe('https://remote-server.org/doc.pdf');
+    });
+
+    it('accepts internal_book referencing an existing library book ID', () => {
+      const internalRefBook = {
+        title: 'অভ্যন্তরীণ রেফারেন্স বই',
+        author: 'লেখক ৩',
+        categoryId: 'sathi-syllabus',
+        sourceType: 'internal_book' as const,
+        internalBookId: 'book-quran-1',
+      };
+
+      const result = validateAndCanonicalizeBook(internalRefBook, true);
+      expect(result.valid).toBe(true);
+      expect(result.sanitized.sourceType).toBe('internal_book');
+      expect(result.sanitized.internalBookId).toBe('book-quran-1');
+    });
+  });
 });

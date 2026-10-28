@@ -1,4 +1,5 @@
 import type { Book } from '../types/index.ts';
+import { isValidUrl } from './syllabusValidation';
 
 /**
  * Diagnostic helper: recursively finds any keys with `undefined` values in an object.
@@ -148,12 +149,31 @@ export function validateAndCanonicalizeBook(
     errors.push('ক্যাটাগরি নির্বাচন করা আবশ্যক।');
   }
 
-  // 4. PDF URL Validation
+  // 4. URL / Reading Resource Validation
+  const rawSourceType = input.sourceType || 'uploaded_pdf';
   const rawPdfUrl = input.pdfUrl !== undefined ? String(input.pdfUrl).trim() : '';
-  if (isNew && !rawPdfUrl) {
-    errors.push('পিডিএফ ফাইল বা লিংক প্রদান করা আবশ্যক।');
-  } else if (rawPdfUrl.startsWith('blob:') || rawPdfUrl.startsWith('data:')) {
-    errors.push('পিডিএফ ফাইলটি এখনও ক্লাউড স্টোরেজে আপলোড সম্পূর্ণ হয়নি। অনুগ্রহ করে অপেক্ষা করুন।');
+  const rawExternalUrl = input.externalUrl !== undefined ? String(input.externalUrl).trim() : '';
+  const rawInternalBookId = input.internalBookId !== undefined ? String(input.internalBookId).trim() : '';
+
+  if (rawSourceType === 'external_page') {
+    if (isNew && !rawExternalUrl && !rawPdfUrl) {
+      errors.push('অনলাইন পড়ার পেজের লিংক (URL) প্রদান করা আবশ্যক।');
+    } else if ((rawExternalUrl && !isValidUrl(rawExternalUrl)) || (rawPdfUrl && !isValidUrl(rawPdfUrl))) {
+      errors.push('প্রদত্ত ওয়েব লিংকটি একটি বৈধ ও নিরাপদ URL (https://) হতে হবে।');
+    }
+  } else if (rawSourceType === 'internal_book') {
+    if (isNew && !rawInternalBookId && !rawPdfUrl) {
+      errors.push('লাইব্রেরির সংযুক্ত বই নির্বাচন করা আবশ্যক।');
+    }
+  } else {
+    // uploaded_pdf or external_pdf
+    if (isNew && !rawPdfUrl) {
+      errors.push('পিডিএফ ফাইল বা লিংক প্রদান করা আবশ্যক।');
+    } else if (rawPdfUrl.startsWith('blob:') || rawPdfUrl.startsWith('data:')) {
+      errors.push('পিডিএফ ফাইলটি এখনও ক্লাউড স্টোরেজে আপলোড সম্পূর্ণ হয়নি। অনুগ্রহ করে অপেক্ষা করুন।');
+    } else if (rawPdfUrl && !isValidUrl(rawPdfUrl)) {
+      errors.push('পিডিএফ লিংকটি একটি সঠিক ও নিরাপদ URL হতে হবে।');
+    }
   }
 
   // Construct canonical payload
@@ -163,6 +183,9 @@ export function validateAndCanonicalizeBook(
   if (rawAuthor) canonical.author = rawAuthor;
   if (rawCategory) canonical.categoryId = rawCategory;
   if (rawPdfUrl) canonical.pdfUrl = rawPdfUrl;
+  if (rawSourceType) canonical.sourceType = rawSourceType;
+  if (rawExternalUrl) canonical.externalUrl = rawExternalUrl;
+  if (rawInternalBookId) canonical.internalBookId = rawInternalBookId;
 
   // Optional string fields (omit if empty or undefined)
   if (input.categoryName && String(input.categoryName).trim()) {

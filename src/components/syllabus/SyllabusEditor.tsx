@@ -3,9 +3,10 @@ import {
   Plus, Trash2, ChevronUp, ChevronDown, Save, Eye, EyeOff, GripVertical,
   BookOpen, Target, List, AlertTriangle, CheckCircle, X,
 } from 'lucide-react';
-import { Syllabus, SyllabusSection, SyllabusResourceGroup, SyllabusResource } from '../../types';
+import { Syllabus, SyllabusSection, SyllabusResourceGroup, SyllabusResource, Book } from '../../types';
 import { isValidUrl } from '../../lib/syllabusValidation';
 import { generateId } from '../../lib/utils';
+import { useLibrary } from '../../context/LibraryContext';
 
 const CATEGORY_OPTIONS = [
   { value: 'school-syllabus', label: 'স্কুল সিলেবাস' },
@@ -695,74 +696,91 @@ interface ResourceItemEditorProps {
 
 const ResourceItemEditor: React.FC<ResourceItemEditorProps> = ({
   item, index, total, onUpdate, onRemove, onMove,
-}) => (
-  <div className="bg-white border border-gray-100 rounded-lg p-3 space-y-2 text-xs">
-    <div className="flex items-center gap-2">
-      <span className="text-brand-muted font-bold w-5">{index + 1}.</span>
-      <input
-        type="text"
-        value={item.title}
-        onChange={(e) => onUpdate({ title: e.target.value })}
-        placeholder="বই/রিসোর্সের নাম *"
-        className="flex-1 px-2 py-1.5 rounded border border-brand-border text-xs focus:ring-2 focus:ring-primary/20"
-      />
-      <button type="button" onClick={() => onMove('up')} disabled={index === 0} className="p-1 disabled:opacity-30 hover:bg-gray-100 rounded">
-        <ChevronUp className="w-3 h-3" />
-      </button>
-      <button type="button" onClick={() => onMove('down')} disabled={index === total - 1} className="p-1 disabled:opacity-30 hover:bg-gray-100 rounded">
-        <ChevronDown className="w-3 h-3" />
-      </button>
-      <button type="button" onClick={onRemove} className="p-1 hover:bg-rose-50 text-rose-400 rounded">
-        <Trash2 className="w-3 h-3" />
-      </button>
-    </div>
+}) => {
+  const { books } = useLibrary();
 
-    <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-7">
-      <input
-        type="text"
-        value={item.author || ''}
-        onChange={(e) => onUpdate({ author: e.target.value })}
-        placeholder="লেখক"
-        className="px-2 py-1.5 rounded border border-brand-border text-xs focus:ring-2 focus:ring-primary/20"
-      />
-      <input
-        type="text"
-        value={item.publisher || ''}
-        onChange={(e) => onUpdate({ publisher: e.target.value })}
-        placeholder="প্রকাশক"
-        className="px-2 py-1.5 rounded border border-brand-border text-xs focus:ring-2 focus:ring-primary/20"
-      />
-      <input
-        type="text"
-        value={item.internalBookId || ''}
-        onChange={(e) => onUpdate({ internalBookId: e.target.value })}
-        placeholder="লাইব্রেরি বই ID (ঐচ্ছিক)"
-        className="px-2 py-1.5 rounded border border-brand-border text-xs focus:ring-2 focus:ring-primary/20"
-      />
-      <input
-        type="url"
-        value={item.externalUrl || ''}
-        onChange={(e) => onUpdate({ externalUrl: e.target.value })}
-        placeholder="অনলাইন লিংক (https://)"
-        className={`px-2 py-1.5 rounded border text-xs focus:ring-2 focus:ring-primary/20 col-span-2 ${item.externalUrl && !isValidUrl(item.externalUrl) ? 'border-rose-400' : 'border-brand-border'}`}
-      />
-      <input
-        type="url"
-        value={item.downloadUrl || ''}
-        onChange={(e) => onUpdate({ downloadUrl: e.target.value })}
-        placeholder="ডাউনলোড লিংক (ঐচ্ছিক)"
-        className="px-2 py-1.5 rounded border border-brand-border text-xs focus:ring-2 focus:ring-primary/20"
-      />
-    </div>
+  return (
+    <div className="bg-white border border-gray-100 rounded-lg p-3 space-y-2 text-xs">
+      <div className="flex items-center gap-2">
+        <span className="text-brand-muted font-bold w-5">{index + 1}.</span>
+        <input
+          type="text"
+          value={item.title}
+          onChange={(e) => onUpdate({ title: e.target.value })}
+          placeholder="বই/রিসোর্সের নাম *"
+          className="flex-1 px-2 py-1.5 rounded border border-brand-border text-xs focus:ring-2 focus:ring-primary/20"
+        />
+        <button type="button" onClick={() => onMove('up')} disabled={index === 0} className="p-1 disabled:opacity-30 hover:bg-gray-100 rounded">
+          <ChevronUp className="w-3 h-3" />
+        </button>
+        <button type="button" onClick={() => onMove('down')} disabled={index === total - 1} className="p-1 disabled:opacity-30 hover:bg-gray-100 rounded">
+          <ChevronDown className="w-3 h-3" />
+        </button>
+        <button type="button" onClick={onRemove} className="p-1 hover:bg-rose-50 text-rose-400 rounded">
+          <Trash2 className="w-3 h-3" />
+        </button>
+      </div>
 
-    <div className="pl-7">
-      <input
-        type="text"
-        value={item.description || ''}
-        onChange={(e) => onUpdate({ description: e.target.value })}
-        placeholder="সংক্ষিপ্ত বিবরণ (ঐচ্ছিক)"
-        className="w-full px-2 py-1.5 rounded border border-brand-border text-xs focus:ring-2 focus:ring-primary/20"
-      />
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 pl-7">
+        <input
+          type="text"
+          value={item.author || ''}
+          onChange={(e) => onUpdate({ author: e.target.value })}
+          placeholder="লেখক"
+          className="px-2 py-1.5 rounded border border-brand-border text-xs focus:ring-2 focus:ring-primary/20"
+        />
+        <input
+          type="text"
+          value={item.publisher || ''}
+          onChange={(e) => onUpdate({ publisher: e.target.value })}
+          placeholder="প্রকাশক"
+          className="px-2 py-1.5 rounded border border-brand-border text-xs focus:ring-2 focus:ring-primary/20"
+        />
+        <select
+          value={item.internalBookId || ''}
+          onChange={(e) => {
+            const chosenId = e.target.value;
+            const chosenBook = books.find((b) => b.id === chosenId);
+            onUpdate({
+              internalBookId: chosenId,
+              title: item.title || chosenBook?.title || '',
+              author: item.author || chosenBook?.author || '',
+            });
+          }}
+          className="px-2 py-1.5 rounded border border-brand-border text-xs focus:ring-2 focus:ring-primary/20 bg-white"
+        >
+          <option value="">-- লাইব্রেরি বই লিংক (ঐচ্ছিক) --</option>
+          {books.map((b) => (
+            <option key={b.id} value={b.id}>
+              {b.title}
+            </option>
+          ))}
+        </select>
+        <input
+          type="url"
+          value={item.externalUrl || ''}
+          onChange={(e) => onUpdate({ externalUrl: e.target.value })}
+          placeholder="অনলাইন পড়ার লিংক (https://...)"
+          className={`px-2 py-1.5 rounded border text-xs focus:ring-2 focus:ring-primary/20 col-span-2 ${item.externalUrl && !isValidUrl(item.externalUrl) ? 'border-rose-400' : 'border-brand-border'}`}
+        />
+        <input
+          type="url"
+          value={item.downloadUrl || ''}
+          onChange={(e) => onUpdate({ downloadUrl: e.target.value })}
+          placeholder="সরাসরি PDF / ডাউনলোড লিংক (ঐচ্ছিক)"
+          className="px-2 py-1.5 rounded border border-brand-border text-xs focus:ring-2 focus:ring-primary/20"
+        />
+      </div>
+
+      <div className="pl-7">
+        <input
+          type="text"
+          value={item.description || ''}
+          onChange={(e) => onUpdate({ description: e.target.value })}
+          placeholder="সংক্ষিপ্ত বিবরণ (ঐচ্ছিক)"
+          className="w-full px-2 py-1.5 rounded border border-brand-border text-xs focus:ring-2 focus:ring-primary/20"
+        />
+      </div>
     </div>
-  </div>
-);
+  );
+};

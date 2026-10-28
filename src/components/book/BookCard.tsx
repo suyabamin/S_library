@@ -1,6 +1,6 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
-import { BookOpen, Download, BookMarked, FileText } from 'lucide-react';
+import { BookOpen, Download, BookMarked, FileText, ExternalLink } from 'lucide-react';
 import { Book } from '../../types';
 import { toBengaliNumber } from '../../lib/utils';
 
@@ -78,12 +78,30 @@ export const BookCard: React.FC<BookCardProps> = ({ book, showBorrowAction = fal
 
         {/* Action Buttons */}
         <div className="mt-3 sm:mt-4 pt-2.5 sm:pt-3 border-t border-brand-border/60 grid grid-cols-2 gap-1.5 sm:gap-2">
-          <Link
-            to={`/reader/${book.id}`}
-            className="flex items-center justify-center gap-1.5 py-2 sm:py-1.5 px-2 sm:px-3 rounded-lg text-xs font-bold text-white bg-primary hover:bg-primary-hover active:scale-[0.98] transition text-center shadow-sm min-h-[36px]"
-          >
-            <BookOpen className="w-3.5 h-3.5" /> পড়ুন
-          </Link>
+          {book.sourceType === 'external_page' ? (
+            <a
+              href={book.externalUrl || book.pdfUrl}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-1.5 py-2 sm:py-1.5 px-2 sm:px-3 rounded-lg text-xs font-bold text-white bg-primary hover:bg-primary-hover active:scale-[0.98] transition text-center shadow-sm min-h-[36px]"
+            >
+              <ExternalLink className="w-3.5 h-3.5" /> পড়ুন
+            </a>
+          ) : book.sourceType === 'internal_book' && book.internalBookId ? (
+            <Link
+              to={`/reader/${book.internalBookId}`}
+              className="flex items-center justify-center gap-1.5 py-2 sm:py-1.5 px-2 sm:px-3 rounded-lg text-xs font-bold text-white bg-primary hover:bg-primary-hover active:scale-[0.98] transition text-center shadow-sm min-h-[36px]"
+            >
+              <BookOpen className="w-3.5 h-3.5" /> পড়ুন
+            </Link>
+          ) : (
+            <Link
+              to={`/reader/${book.id}`}
+              className="flex items-center justify-center gap-1.5 py-2 sm:py-1.5 px-2 sm:px-3 rounded-lg text-xs font-bold text-white bg-primary hover:bg-primary-hover active:scale-[0.98] transition text-center shadow-sm min-h-[36px]"
+            >
+              <BookOpen className="w-3.5 h-3.5" /> পড়ুন
+            </Link>
+          )}
 
           {showBorrowAction ? (
             <Link
