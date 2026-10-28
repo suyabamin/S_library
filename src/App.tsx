@@ -3,6 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate, useLocation } from 'react-route
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { LibraryProvider } from './context/LibraryContext';
 import { SiteContentProvider } from './context/SiteContentContext';
+import { SyllabusProvider } from './context/SyllabusContext';
 import { SiteHeader } from './components/common/SiteHeader';
 import { SiteFooter } from './components/common/SiteFooter';
 
@@ -44,6 +45,7 @@ import { AdminLoansPage } from './pages/admin/AdminLoansPage';
 import { AdminUsersPage } from './pages/admin/AdminUsersPage';
 import { AdminHistoryPage } from './pages/admin/AdminHistoryPage';
 import { AdminSettingsPage } from './pages/admin/AdminSettingsPage';
+import { AdminSyllabusPage } from './pages/admin/AdminSyllabusPage';
 
 // Scroll to top helper (instant to eliminate mobile route-transition lag/flickering)
 const ScrollToTop = () => {
@@ -112,7 +114,8 @@ export const App: React.FC = () => {
   return (
     <AuthProvider>
       <LibraryProvider>
-        <SiteContentProvider>
+        <SyllabusProvider>
+          <SiteContentProvider>
           <BrowserRouter>
             <ScrollToTop />
             <Routes>
@@ -403,6 +406,14 @@ export const App: React.FC = () => {
               }
             />
             <Route
+              path="/admin/syllabus"
+              element={
+                <AdminRoute>
+                  <AdminSyllabusPage />
+                </AdminRoute>
+              }
+            />
+            <Route
               path="/admin/settings"
               element={
                 <AdminRoute>
@@ -416,6 +427,7 @@ export const App: React.FC = () => {
           </Routes>
         </BrowserRouter>
         </SiteContentProvider>
+        </SyllabusProvider>
       </LibraryProvider>
     </AuthProvider>
   );

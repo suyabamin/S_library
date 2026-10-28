@@ -233,3 +233,73 @@ export interface AuditLog {
   details: string;
   createdAt: string;
 }
+
+// ==========================================
+// Dynamic Syllabus Management Types
+// ==========================================
+
+export interface SyllabusResource {
+  id: string;
+  title: string;
+  author?: string;
+  publisher?: string;
+  description?: string;
+  externalUrl?: string; // e.g. https://... or icsbook link
+  internalBookId?: string; // ID of existing digital/physical book in library
+  downloadUrl?: string;
+  coverUrl?: string;
+  resourceType?: 'book' | 'article' | 'memorization' | 'audio' | 'document' | 'other';
+  order: number;
+}
+
+export interface SyllabusResourceGroup {
+  id: string;
+  title: string; // e.g. 'অধ্যয়ন', 'পাঠ্যবই', 'গ্রন্থনির্দেশনা', 'অতিরিক্ত পাঠ'
+  description?: string;
+  items: SyllabusResource[];
+  order: number;
+}
+
+export interface SyllabusSection {
+  id: string;
+  title: string; // e.g. 'আল কুরআন', 'আল হাদিস', 'ইসলামী জীবনাদর্শ'
+  description?: string;
+  objectives: string[]; // List of learning objectives / bullets
+  studyInstructions?: string; // Optional study instructions
+  notes?: string; // Optional section notes
+  resourceGroups: SyllabusResourceGroup[];
+  order: number;
+}
+
+export interface Syllabus {
+  id: string;
+  title: string; // e.g. 'স্কুলপাঠ্য', 'কর্মী সিলেবাস'
+  slug: string; // e.g. 'school-syllabus'
+  categorySlug: string; // matches Category slug (school-syllabus, kormi-syllabus, etc.)
+  subtitle?: string;
+  description?: string;
+  notice?: string; // Introductory notice / announcement
+  bannerUrl?: string;
+  downloadUrl?: string; // Complete syllabus PDF download URL
+  lastUpdated?: string;
+  status: 'draft' | 'published';
+  sections: SyllabusSection[];
+  createdAt: string;
+  updatedAt: string;
+  createdBy?: string;
+  updatedBy?: string;
+  publishedAt?: string;
+  schemaVersion?: number;
+}
+
+export const SYLLABUS_CATEGORY_SLUGS = [
+  'school-syllabus',
+  'kormi-syllabus',
+  'sathi-syllabus',
+  'shodosho-syllabus',
+  'higher-syllabus',
+  'syllabus-books',
+] as const;
+
+export type SyllabusCategorySlug = (typeof SYLLABUS_CATEGORY_SLUGS)[number];
+

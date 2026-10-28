@@ -123,5 +123,13 @@ service cloud.firestore {
       allow read: if true;
       allow write: if isAdmin();
     }
+
+    // 13. Dynamic Syllabus Management:
+    // - Public visitors can read only published syllabuses (status == 'published')
+    // - Authorized admins can read all (including drafts) and create/update/delete
+    match /syllabuses/{syllabusId} {
+      allow read: if resource.data.status == 'published' || isAdmin();
+      allow write: if isAdmin();
+    }
   }
 }

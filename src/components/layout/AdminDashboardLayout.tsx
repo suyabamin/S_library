@@ -10,6 +10,7 @@ import {
   RotateCcw,
   Users,
   ScrollText,
+  BookMarked,
   Settings,
   LogOut,
   ShieldCheck,
@@ -43,6 +44,7 @@ export const AdminDashboardLayout: React.FC<{ children: React.ReactNode }> = ({ 
     { label: 'লোন ও রিটার্ন কনফার্ম', path: '/admin/loans', icon: RotateCcw },
     { label: 'ব্যবহারকারী তালিকা', path: '/admin/users', icon: Users },
     { label: 'সংগঠনের ইতিহাস CMS', path: '/admin/history', icon: ScrollText },
+    { label: 'সিলেবাস ব্যবস্থাপনা', path: '/admin/syllabus', icon: BookMarked },
     { label: 'সিস্টেম সেটিংস', path: '/admin/settings', icon: Settings },
   ];
 
