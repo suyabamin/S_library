@@ -98,6 +98,21 @@
 - [x] Implement admin dashboard with real data and statistics (`AdminDashboardPage.tsx`).
 - [x] Implement user management with restricted actions (`AdminUsersPage.tsx`).
 - [x] Implement request/loan/inventory management.
+
+## Phase 12 — Dynamic Syllabus Management System
+- [x] Define TypeScript interfaces for Syllabus, SyllabusSection, SyllabusResourceGroup, SyllabusResource (`src/types/index.ts`).
+- [x] Create URL validation, syllabus validation, and Firestore payload sanitizer (`src/lib/syllabusValidation.ts`).
+- [x] Provide initial seed syllabuses for all 6 target categories (`src/lib/syllabusSeedData.ts`).
+- [x] Implement `SyllabusContext` with Firestore sync and admin-only draft view permissions (`src/context/SyllabusContext.tsx`).
+- [x] Design and build public `SyllabusPage` component matching structure of reference (`src/components/syllabus/SyllabusPage.tsx`).
+- [x] Build admin `SyllabusEditor` with section/group/item reordering and instant validation (`src/components/syllabus/SyllabusEditor.tsx`).
+- [x] Implement Admin Syllabus CMS page (`src/pages/admin/AdminSyllabusPage.tsx`).
+- [x] Integrate `SyllabusPage` into `/categories/:slug` route for syllabus categories (`src/pages/CategoryListingPage.tsx`).
+- [x] Add sidebar navigation item in Admin Layout (`src/components/layout/AdminDashboardLayout.tsx`).
+- [x] Register `/admin/syllabus` route and wrap app with `SyllabusProvider` (`src/App.tsx`).
+- [x] Update Firestore security rules for `/syllabuses/{id}` (`firestore.rules`).
+- [x] Write automated tests for validation and canonicalization (`src/test/syllabusValidation.test.ts`).
+- [x] Run full test suite (44/44 passing) and verify production build.
 - [x] Implement admin settings (`AdminSettingsPage.tsx`).
 
 ## Phase 12 — Quality Assurance & Testing

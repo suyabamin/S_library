@@ -29,12 +29,18 @@
 - **Notifications:** In-app notification center with tabs ("সব", "পড়েননি", "পড়েছেন") and real-time updates.
 - **Two-Party Return Confirmation:** Both borrower ("বই ফেরত দিয়েছি") and admin ("বই গ্রহণ করেছি") must confirm before loan status becomes `returned`, idempotently restoring physical copy count exactly once.
 - **Archive:** Completed loans preserved in user's permanent archive.
+- **Dynamic Syllabus Management System:**
+  - 6 category routes supported: `/categories/school-syllabus`, `/categories/kormi-syllabus`, `/categories/sathi-syllabus`, `/categories/shodosho-syllabus`, `/categories/higher-syllabus`, `/categories/syllabus-books`.
+  - Public `SyllabusPage` view matching reference structure (sections, objectives, notes, internal/external links, direct downloads).
+  - Admin CMS at `/admin/syllabus` with full CRUD, section ordering, resource groups, validation, draft/published status toggling.
+  - Firestore security rule matching `/syllabuses/{id}` (public read for published, admin-only read for drafts, admin-only write).
+  - Clean Firestore payload sanitization stripping all undefined values.
 - **Organizational History:** Historical timeline articles with year badges (২০১৮, ২০২১, ২০২৩), photos, verified dates, and sources.
 - **Admin Dashboard:** Statistical cards, real SVG borrowing trend chart, digital book management, physical inventory stock adjusters, request management, and system settings.
 - **Security & R2:** Firestore Security Rules with default-deny posture and server-side presigned upload/download endpoints without exposing private credentials to client code.
 
 ## Verification Status
 - Production Build: `npm run build` completed successfully.
-- Vitest Unit Tests: 7/7 tests passed.
+- Vitest Unit Tests: 44/44 tests passed across 6 test suites.
 - ESLint: Passed with 0 errors.
 - Responsive design: Mobile drawer, stacked tables, and responsive forms verified.
